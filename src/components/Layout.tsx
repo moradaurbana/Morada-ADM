@@ -45,7 +45,11 @@ export default function Layout() {
       )}>
         <div className="h-full flex flex-col">
           <div className="p-6 flex items-center gap-3 border-b border-gray-700">
-            <img src="logo2.png" alt="Logo" className="h-10 w-auto object-contain" />
+            <img 
+              src={`${import.meta.env.BASE_URL}logo2.png`} 
+              alt="Logo" 
+              className="h-10 w-auto object-contain" 
+            />
             <h1 className="text-xl font-bold text-white">Morada Urbana</h1>
           </div>
 
