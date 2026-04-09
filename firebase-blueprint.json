@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "Proprietario": {
+      "title": "Proprietario",
+      "description": "Cadastro de proprietários (locadores)",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string", "description": "Nome completo ou Razão Social" },
+        "documento": { "type": "string", "description": "CPF ou CNPJ" },
+        "rgInscricao": { "type": "string", "description": "RG ou Inscrição Estadual" },
+        "endereco": { "type": "string", "description": "Endereço completo" },
+        "telefone": { "type": "string", "description": "Telefone / WhatsApp" },
+        "email": { "type": "string", "format": "email" },
+        "dadosBancarios": { "type": "string", "description": "Banco, Agência, Conta, PIX" },
+        "tipoPessoa": { "type": "string", "enum": ["PF", "PJ"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "documento", "tipoPessoa", "createdAt"]
+    },
+    "Inquilino": {
+      "title": "Inquilino",
+      "description": "Cadastro de inquilinos (locatários)",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string", "description": "Nome completo ou Razão Social" },
+        "documento": { "type": "string", "description": "CPF ou CNPJ" },
+        "telefone": { "type": "string", "description": "Telefone / WhatsApp" },
+        "email": { "type": "string", "format": "email" },
+        "profissao": { "type": "string" },
+        "tipoGarantia": { "type": "string", "enum": ["Fiador", "Seguro Fiança", "Caução", "Sem Garantia"] },
+        "dadosGarantia": { "type": "string", "description": "Detalhes da garantia" },
+        "enderecoAnterior": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "documento", "createdAt"]
+    },
+    "Imovel": {
+      "title": "Imovel",
+      "description": "Cadastro de imóveis",
+      "type": "object",
+      "properties": {
+        "codigo": { "type": "string", "description": "Código do imóvel" },
+        "tipo": { "type": "string", "enum": ["Apartamento", "Casa", "Comercial", "Outro"] },
+        "endereco": { "type": "string", "description": "Endereço completo" },
+        "cep": { "type": "string" },
+        "area": { "type": "number", "description": "Área em m²" },
+        "dormitorios": { "type": "number" },
+        "vagas": { "type": "number" },
+        "valorLocacao": { "type": "number" },
+        "valorCondominio": { "type": "number" },
+        "valorIptu": { "type": "number" },
+        "caracteristicas": { "type": "string" },
+        "status": { "type": "string", "enum": ["Disponível", "Locado", "Inativo"] },
+        "proprietarioId": { "type": "string", "description": "ID do proprietário" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["codigo", "tipo", "endereco", "valorLocacao", "status", "proprietarioId", "createdAt"]
+    },
+    "Contrato": {
+      "title": "Contrato",
+      "description": "Gestão de contratos de locação",
+      "type": "object",
+      "properties": {
+        "codigo": { "type": "string" },
+        "imovelId": { "type": "string" },
+        "proprietarioId": { "type": "string" },
+        "inquilinoId": { "type": "string" },
+        "dataInicio": { "type": "string", "format": "date-time" },
+        "dataTermino": { "type": "string", "format": "date-time" },
+        "prazoMeses": { "type": "number" },
+        "tipoGarantia": { "type": "string" },
+        "valorAluguel": { "type": "number" },
+        "indiceReajuste": { "type": "string", "enum": ["IGP-M", "IPCA", "INPC", "Outro"] },
+        "diaVencimento": { "type": "number" },
+        "taxaAdministracao": { "type": "number", "description": "Percentual %" },
+        "taxasAdicionais": { "type": "string", "description": "JSON stringificado com condomínio, iptu, seguro, etc" },
+        "status": { "type": "string", "enum": ["Ativo", "Encerrado", "Inadimplente"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["codigo", "imovelId", "proprietarioId", "inquilinoId", "dataInicio", "dataTermino", "valorAluguel", "status", "createdAt"]
+    },
+    "Cobranca": {
+      "title": "Cobranca",
+      "description": "Contas a Receber (Inquilino)",
+      "type": "object",
+      "properties": {
+        "contratoId": { "type": "string" },
+        "inquilinoId": { "type": "string" },
+        "mesReferencia": { "type": "string", "description": "MM/YYYY" },
+        "dataVencimento": { "type": "string", "format": "date-time" },
+        "valorAluguel": { "type": "number" },
+        "valorCondominio": { "type": "number" },
+        "valorIptu": { "type": "number" },
+        "valorSeguro": { "type": "number" },
+        "taxasExtras": { "type": "number" },
+        "multasJuros": { "type": "number" },
+        "valorTotal": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendente", "Pago", "Atrasado"] },
+        "dataPagamento": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["contratoId", "inquilinoId", "mesReferencia", "dataVencimento", "valorTotal", "status", "createdAt"]
+    },
+    "Repasse": {
+      "title": "Repasse",
+      "description": "Contas a Pagar (Repasse ao Proprietário)",
+      "type": "object",
+      "properties": {
+        "contratoId": { "type": "string" },
+        "proprietarioId": { "type": "string" },
+        "cobrancaId": { "type": "string", "description": "ID da cobrança paga pelo inquilino" },
+        "mesReferencia": { "type": "string", "description": "MM/YYYY" },
+        "valorRecebido": { "type": "number" },
+        "taxaAdministracao": { "type": "number" },
+        "despesas": { "type": "number" },
+        "valorLiquido": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendente", "Pago"] },
+        "dataRepasse": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["contratoId", "proprietarioId", "cobrancaId", "mesReferencia", "valorRecebido", "valorLiquido", "status", "createdAt"]
+    },
+    "Usuario": {
+      "title": "Usuario",
+      "description": "Usuários do sistema (Admin/Operador)",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "nome": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "operador"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/proprietarios/{proprietarioId}": {
+      "schema": { "$ref": "#/entities/Proprietario" },
+      "description": "Coleção de proprietários"
+    },
+    "/inquilinos/{inquilinoId}": {
+      "schema": { "$ref": "#/entities/Inquilino" },
+      "description": "Coleção de inquilinos"
+    },
+    "/imoveis/{imovelId}": {
+      "schema": { "$ref": "#/entities/Imovel" },
+      "description": "Coleção de imóveis"
+    },
+    "/contratos/{contratoId}": {
+      "schema": { "$ref": "#/entities/Contrato" },
+      "description": "Coleção de contratos"
+    },
+    "/cobrancas/{cobrancaId}": {
+      "schema": { "$ref": "#/entities/Cobranca" },
+      "description": "Coleção de cobranças"
+    },
+    "/repasses/{repasseId}": {
+      "schema": { "$ref": "#/entities/Repasse" },
+      "description": "Coleção de repasses"
+    },
+    "/usuarios/{usuarioId}": {
+      "schema": { "$ref": "#/entities/Usuario" },
+      "description": "Coleção de usuários do sistema"
+    }
+  }
+}

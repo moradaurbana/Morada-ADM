@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "jeferson.bernardes2024@gmail.com" ||
+        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isOperadorOrAdmin() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role in ['admin', 'operador'])
+      );
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // Usuarios
+    match /usuarios/{userId} {
+      allow read: if isOperadorOrAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Proprietarios
+    match /proprietarios/{docId} {
+      allow read, write: if isOperadorOrAdmin();
+    }
+
+    // Inquilinos
+    match /inquilinos/{docId} {
+      allow read, write: if isOperadorOrAdmin();
+    }
+
+    // Imoveis
+    match /imoveis/{docId} {
+      allow read, write: if isOperadorOrAdmin();
+    }
+
+    // Contratos
+    match /contratos/{docId} {
+      allow read, write: if isOperadorOrAdmin();
+    }
+
+    // Cobrancas
+    match /cobrancas/{docId} {
+      allow read, write: if isOperadorOrAdmin();
+    }
+
+    // Repasses
+    match /repasses/{docId} {
+      allow read, write: if isOperadorOrAdmin();
+    }
+  }
+}
