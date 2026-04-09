@@ -45,7 +45,7 @@ export default function Layout() {
       )}>
         <div className="h-full flex flex-col">
           <div className="p-6 flex items-center justify-center border-b border-gray-700">
-            <img src="/logo2.png" alt="Morada Urbana" className="h-12 w-auto object-contain" />
+            <img src="logo2.png" alt="Morada Urbana" className="h-12 w-auto object-contain" />
           </div>
 
           <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
