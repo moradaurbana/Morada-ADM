@@ -44,8 +44,9 @@ export default function Layout() {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="h-full flex flex-col">
-          <div className="p-6 flex items-center justify-center border-b border-gray-700">
-            <img src="logo2.png" alt="Morada Urbana" className="h-12 w-auto object-contain" />
+          <div className="p-6 flex items-center gap-3 border-b border-gray-700">
+            <img src="logo2.png" alt="Logo" className="h-10 w-auto object-contain" />
+            <h1 className="text-xl font-bold text-white">Morada Urbana</h1>
           </div>
 
           <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">
