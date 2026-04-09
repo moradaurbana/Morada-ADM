@@ -3,8 +3,8 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { FileText, Download } from 'lucide-react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
-const capaBg = '/capa-bg.jpg';
-const logo1 = '/logo1.png';
+import capaBg from '../assets/capa-bg.jpg';
+import logo1 from '../assets/logo1.png';
 
 // Estilos do PDF
 const styles = StyleSheet.create({

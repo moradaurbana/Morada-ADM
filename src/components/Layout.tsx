@@ -10,13 +10,16 @@ import {
   PieChart, 
   LogOut,
   Menu,
-  X
+  X,
+  Building2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import logo from '../assets/logo.png';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [logoError, setLogoError] = React.useState(false);
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -44,13 +47,23 @@ export default function Layout() {
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
         <div className="h-full flex flex-col">
-          <div className="p-6 flex items-center gap-3 border-b border-gray-700">
-            <img 
-              src={`${import.meta.env.BASE_URL}logo2.png`} 
-              alt="Logo" 
-              className="h-10 w-auto object-contain" 
-            />
-            <h1 className="text-xl font-bold text-white">Morada Urbana</h1>
+          <div className="p-6 flex items-center gap-4 border-b border-gray-700/50">
+            <div className="h-12 w-12 flex-shrink-0 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-xl border border-white/10">
+              {!logoError ? (
+                <img 
+                  src={logo} 
+                  alt="Logo" 
+                  className="h-full w-full object-contain p-1.5" 
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <Building2 className="h-7 w-7 text-orange-600" />
+              )}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xl font-bold text-white tracking-tight leading-none">Morada</span>
+              <span className="text-[10px] font-black text-orange-500 uppercase tracking-[0.3em] leading-none">Urbana</span>
+            </div>
           </div>
 
           <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto">

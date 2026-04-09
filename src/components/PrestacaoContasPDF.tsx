@@ -2,8 +2,8 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-const logo1 = '/logo1.png';
-const logo3 = '/logo3.png';
+import logo1 from '../assets/logo1.png';
+import logo3 from '../assets/logo3.png';
 
 const styles = StyleSheet.create({
   page: { 
