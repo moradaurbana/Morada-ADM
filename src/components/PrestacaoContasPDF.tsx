@@ -2,18 +2,10 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-const getAssetUrl = (name: string) => {
-  // Para o GitHub Pages, usamos o caminho absoluto do repositório
-  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-    return `https://moradaurbana.github.io/Morada-ADM/${name}`;
-  }
-  // Para a plataforma ou outros ambientes
-  const base = import.meta.env.BASE_URL;
-  return `${base}${name}`.replace(/\/+/g, '/');
-};
+import { LOGOS } from '../constants/images';
 
-const logo1Path = getAssetUrl('logo1.png');
-const logo3Path = getAssetUrl('logo3.png');
+const logo1Path = LOGOS.logo1;
+const logo3Path = LOGOS.logo3;
 
 const styles = StyleSheet.create({
   page: { 

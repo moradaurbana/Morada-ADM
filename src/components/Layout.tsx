@@ -15,30 +15,14 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
+import { LOGOS } from '../constants/images';
+
 export default function Layout() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [logoError, setLogoError] = React.useState(false);
 
-  const getAssetUrl = (name: string) => {
-    // Para o GitHub Pages, usamos o caminho absoluto do repositório
-    if (window.location.hostname.includes('github.io')) {
-      return `https://moradaurbana.github.io/Morada-ADM/${name}`;
-    }
-    // Para a plataforma ou outros ambientes
-    const base = import.meta.env.BASE_URL;
-    return `${base}${name}`.replace(/\/+/g, '/');
-  };
-
-  const logoPath = getAssetUrl('logo.png');
-
-  React.useEffect(() => {
-    console.log('--- DEBUG LOGOS ---');
-    console.log('BASE_URL:', import.meta.env.BASE_URL);
-    console.log('Logo Path:', logoPath);
-    console.log('Window Location:', window.location.href);
-    console.log('-------------------');
-  }, [logoPath]);
+  const logoPath = LOGOS.logo;
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },

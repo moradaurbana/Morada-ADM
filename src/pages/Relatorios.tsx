@@ -3,17 +3,9 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { FileText, Download } from 'lucide-react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
-const getAssetUrl = (name: string) => {
-  // Para o GitHub Pages, usamos o caminho absoluto do repositório
-  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-    return `https://moradaurbana.github.io/Morada-ADM/${name}`;
-  }
-  // Para a plataforma ou outros ambientes
-  const base = import.meta.env.BASE_URL;
-  return `${base}${name}`.replace(/\/+/g, '/');
-};
+import { LOGOS } from '../constants/images';
 
-const logo1Path = getAssetUrl('logo1.png');
+const logo1Path = LOGOS.logo1;
 
 // Estilos do PDF
 const styles = StyleSheet.create({
