@@ -2,8 +2,17 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-const logo1Path = `${import.meta.env.BASE_URL}logo1.png`.replace(/\/+/g, '/');
-const logo3Path = `${import.meta.env.BASE_URL}logo3.png`.replace(/\/+/g, '/');
+const getAssetUrl = (name: string) => {
+  const base = import.meta.env.BASE_URL;
+  if (base === './') {
+    const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+    return `${window.location.origin}${path}${name}`;
+  }
+  return `${base}${name}`.replace(/\/+/g, '/');
+};
+
+const logo1Path = getAssetUrl('logo1.png');
+const logo3Path = getAssetUrl('logo3.png');
 
 const styles = StyleSheet.create({
   page: { 

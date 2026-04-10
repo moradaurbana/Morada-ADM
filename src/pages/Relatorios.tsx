@@ -3,7 +3,16 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { FileText, Download } from 'lucide-react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
-const logo1Path = `${import.meta.env.BASE_URL}logo1.png`.replace(/\/+/g, '/');
+const getAssetUrl = (name: string) => {
+  const base = import.meta.env.BASE_URL;
+  if (base === './') {
+    const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+    return `${window.location.origin}${path}${name}`;
+  }
+  return `${base}${name}`.replace(/\/+/g, '/');
+};
+
+const logo1Path = getAssetUrl('logo1.png');
 
 // Estilos do PDF
 const styles = StyleSheet.create({

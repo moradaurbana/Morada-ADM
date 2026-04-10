@@ -20,7 +20,24 @@ export default function Layout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [logoError, setLogoError] = React.useState(false);
 
-  const logoPath = `${import.meta.env.BASE_URL}logo.png`.replace(/\/+/g, '/');
+  const getAssetUrl = (name: string) => {
+    const base = import.meta.env.BASE_URL;
+    if (base === './') {
+      const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+      return `${window.location.origin}${path}${name}`;
+    }
+    return `${base}${name}`.replace(/\/+/g, '/');
+  };
+
+  const logoPath = getAssetUrl('logo.png');
+
+  React.useEffect(() => {
+    console.log('--- DEBUG LOGOS ---');
+    console.log('BASE_URL:', import.meta.env.BASE_URL);
+    console.log('Logo Path:', logoPath);
+    console.log('Window Location:', window.location.href);
+    console.log('-------------------');
+  }, [logoPath]);
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
