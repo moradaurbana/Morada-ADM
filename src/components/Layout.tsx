@@ -31,8 +31,6 @@ export default function Layout() {
     { to: '/relatorios', icon: PieChart, label: 'Relatórios (IR)' },
   ];
 
-  const logoPath = `${import.meta.env.BASE_URL}logo_final.png`.replace(/\/+/g, '/');
-
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex">
       {/* Mobile Menu Button */}
@@ -53,7 +51,7 @@ export default function Layout() {
             <div className="h-12 w-12 flex-shrink-0 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-xl border border-white/10">
               {!logoError ? (
                 <img 
-                  src={logoPath} 
+                  src={logo} 
                   alt="Logo" 
                   className="h-full w-full object-contain p-1.5" 
                   onError={() => setLogoError(true)}

@@ -3,8 +3,8 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { FileText, Download } from 'lucide-react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
-const capaPath = `${import.meta.env.BASE_URL}capa_final.jpg`.replace(/\/+/g, '/');
-const logo1Path = `${import.meta.env.BASE_URL}logo1_final.png`.replace(/\/+/g, '/');
+import capaBg from '../assets/capa-bg.jpg';
+import logo1 from '../assets/logo1.png';
 
 // Estilos do PDF
 const styles = StyleSheet.create({
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
 
 const CapaPDF = ({ titulo, ano }: any) => (
   <Page size="A4" style={styles.coverPage}>
-    <Image src={capaPath} style={styles.coverImage} />
+    <Image src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop" style={styles.coverImage} />
     <View style={styles.coverOverlay} />
     <View style={styles.coverContent}>
       <View style={styles.coverHeader}>
@@ -92,7 +92,7 @@ export const InformeIRProprietarioPDF = ({ proprietario, inquilino, imovel, ano,
             <Text style={styles.subtitle}>Ano-Calendário: {ano}</Text>
           </View>
           <View>
-            <Image src={logo1Path} style={styles.logo} />
+            <Image src={logo1} style={styles.logo} />
           </View>
         </View>
 
@@ -190,7 +190,7 @@ export const InformeIRInquilinoPDF = ({ inquilino, proprietario, imovel, ano, co
             <Text style={styles.subtitle}>Ano-Calendário: {ano}</Text>
           </View>
           <View>
-            <Image src={logo1Path} style={styles.logo} />
+            <Image src={logo1} style={styles.logo} />
           </View>
         </View>
 
