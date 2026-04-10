@@ -2,8 +2,8 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import logo1 from '../assets/logo1.png';
-import logo3 from '../assets/logo3.png';
+const logo1Path = `${import.meta.env.BASE_URL}logo1.png`.replace(/\/+/g, '/');
+const logo3Path = `${import.meta.env.BASE_URL}logo3.png`.replace(/\/+/g, '/');
 
 const styles = StyleSheet.create({
   page: { 
@@ -322,7 +322,7 @@ const CoverPage = ({ type, monthYear }: { type: 'LOCATÁRIO' | 'LOCADOR', monthY
           <Text style={{ color: '#fff', fontSize: 10, marginTop: 4 }}>EQUIPE MORADA URBANA</Text>
         </View>
         <View style={styles.coverFooterRight}>
-          <Image src={logo3} style={{ width: 120, height: 'auto' }} />
+          <Image src={logo3Path} style={{ width: 120, height: 'auto' }} />
         </View>
       </View>
     </View>
@@ -345,8 +345,8 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Prestação de contas</Text>
         <View style={styles.logoContainer}>
-          <Image src={logo3} style={styles.secondaryLogo} />
-          <Image src={logo1} style={{ width: 120 }} />
+          <Image src={logo3Path} style={styles.secondaryLogo} />
+          <Image src={logo1Path} style={{ width: 120 }} />
         </View>
       </View>
 
@@ -446,8 +446,8 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Prestação de contas</Text>
         <View style={styles.logoContainer}>
-          <Image src={logo3} style={styles.secondaryLogo} />
-          <Image src={logo1} style={{ width: 120 }} />
+          <Image src={logo3Path} style={styles.secondaryLogo} />
+          <Image src={logo1Path} style={{ width: 120 }} />
         </View>
       </View>
 
@@ -529,8 +529,8 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Demonstrativo de Repasse</Text>
         <View style={styles.logoContainer}>
-          <Image src={logo3} style={styles.secondaryLogo} />
-          <Image src={logo1} style={{ width: 120, height: 'auto' }} />
+          <Image src={logo3Path} style={styles.secondaryLogo} />
+          <Image src={logo1Path} style={{ width: 120, height: 'auto' }} />
         </View>
       </View>
 

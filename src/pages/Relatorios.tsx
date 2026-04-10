@@ -3,8 +3,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { FileText, Download } from 'lucide-react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
-import capaBg from '../assets/capa-bg.jpg';
-import logo1 from '../assets/logo1.png';
+const logo1Path = `${import.meta.env.BASE_URL}logo1.png`.replace(/\/+/g, '/');
 
 // Estilos do PDF
 const styles = StyleSheet.create({
@@ -92,7 +91,7 @@ export const InformeIRProprietarioPDF = ({ proprietario, inquilino, imovel, ano,
             <Text style={styles.subtitle}>Ano-Calendário: {ano}</Text>
           </View>
           <View>
-            <Image src={logo1} style={styles.logo} />
+            <Image src={logo1Path} style={styles.logo} />
           </View>
         </View>
 
@@ -190,7 +189,7 @@ export const InformeIRInquilinoPDF = ({ inquilino, proprietario, imovel, ano, co
             <Text style={styles.subtitle}>Ano-Calendário: {ano}</Text>
           </View>
           <View>
-            <Image src={logo1} style={styles.logo} />
+            <Image src={logo1Path} style={styles.logo} />
           </View>
         </View>
 

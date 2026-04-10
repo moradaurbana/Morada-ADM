@@ -14,12 +14,13 @@ import {
   Building2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import logo from '../assets/logo.png';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [logoError, setLogoError] = React.useState(false);
+
+  const logoPath = `${import.meta.env.BASE_URL}logo.png`.replace(/\/+/g, '/');
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -51,7 +52,7 @@ export default function Layout() {
             <div className="h-12 w-12 flex-shrink-0 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-xl border border-white/10">
               {!logoError ? (
                 <img 
-                  src={logo} 
+                  src={logoPath} 
                   alt="Logo" 
                   className="h-full w-full object-contain p-1.5" 
                   onError={() => setLogoError(true)}
