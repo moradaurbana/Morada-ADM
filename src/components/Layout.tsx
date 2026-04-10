@@ -21,11 +21,12 @@ export default function Layout() {
   const [logoError, setLogoError] = React.useState(false);
 
   const getAssetUrl = (name: string) => {
-    const base = import.meta.env.BASE_URL;
-    if (base === './') {
-      const path = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
-      return `${window.location.origin}${path}${name}`;
+    // Para o GitHub Pages, usamos o caminho absoluto do repositório
+    if (window.location.hostname.includes('github.io')) {
+      return `https://moradaurbana.github.io/Morada-ADM/${name}`;
     }
+    // Para a plataforma ou outros ambientes
+    const base = import.meta.env.BASE_URL;
     return `${base}${name}`.replace(/\/+/g, '/');
   };
 
