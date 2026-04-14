@@ -13,7 +13,7 @@ export interface ItemAdicional {
   id: string;
   descricao: string;
   valor: number;
-  tipo: 'acrescimo' | 'desconto' | 'despesa_proprietario';
+  tipo: 'acrescimo' | 'desconto' | 'despesa_proprietario' | 'nenhum';
   fazParteCondominio?: boolean;
 }
 
@@ -27,6 +27,10 @@ export interface Cobranca {
   valorCondominio: number;
   valorIptu: number;
   taxasExtras: number;
+  condoProporcionalDesc?: string;
+  condoProporcionalValor?: number;
+  iptuProporcionalDesc?: string;
+  iptuProporcionalValor?: number;
   itensAdicionais?: ItemAdicional[];
   valorTotal: number;
   status: 'Pendente' | 'Pago' | 'Atrasado';
@@ -39,12 +43,17 @@ export interface Repasse {
   proprietarioId: string;
   cobrancaId: string;
   mesReferencia: string;
+  valorAluguel: number;
   valorRecebido: number;
   taxaAdministracao: number;
   valorCondominio?: number;
-  tipoCondominio?: 'desconto' | 'repasse';
+  tipoCondominio?: 'desconto' | 'repasse' | 'nenhum';
   valorIptu?: number;
-  tipoIptu?: 'desconto' | 'repasse';
+  tipoIptu?: 'desconto' | 'repasse' | 'nenhum';
+  condoProporcionalDesc?: string;
+  condoProporcionalValor?: number;
+  iptuProporcionalDesc?: string;
+  iptuProporcionalValor?: number;
   itensAdicionais?: ItemAdicional[];
   valorLiquido: number;
   status: 'Pendente' | 'Pago';
@@ -238,17 +247,22 @@ export default function Financeiro() {
     try {
       if (!editingCobranca) return;
       
-      const valorAluguel = Number(data.valorAluguel) || 0;
-      const valorCondominio = Number(data.valorCondominio) || 0;
-      const valorIptu = Number(data.valorIptu) || 0;
-      const taxasExtras = Number(data.taxasExtras) || 0;
+      const valorAluguel = Number(Number(data.valorAluguel).toFixed(2)) || 0;
+      const valorCondominio = Number(Number(data.valorCondominio).toFixed(2)) || 0;
+      const valorIptu = Number(Number(data.valorIptu).toFixed(2)) || 0;
+      const taxasExtras = Number(Number(data.taxasExtras).toFixed(2)) || 0;
+      const condoProporcionalValor = Number(Number(data.condoProporcionalValor).toFixed(2)) || 0;
+      const iptuProporcionalValor = Number(Number(data.iptuProporcionalValor).toFixed(2)) || 0;
       
-      let valorTotal = valorAluguel + valorCondominio + valorIptu + taxasExtras;
+      let valorTotal = valorAluguel + valorCondominio + valorIptu + taxasExtras + condoProporcionalValor + iptuProporcionalValor;
       
       editingItens.forEach(item => {
         if (item.tipo === 'acrescimo') valorTotal += item.valor;
         else if (item.tipo === 'desconto') valorTotal -= item.valor;
+        // Itens do tipo 'despesa_proprietario' são ignorados na soma do inquilino
       });
+
+      valorTotal = Number(valorTotal.toFixed(2));
 
       const cobRef = doc(db, 'cobrancas', editingCobranca.id);
       const [year, month, day] = data.dataVencimento.split('-').map(Number);
@@ -258,6 +272,10 @@ export default function Financeiro() {
         valorCondominio,
         valorIptu,
         taxasExtras,
+        condoProporcionalDesc: data.condoProporcionalDesc || '',
+        condoProporcionalValor,
+        iptuProporcionalDesc: data.iptuProporcionalDesc || '',
+        iptuProporcionalValor,
         itensAdicionais: editingItens,
         valorTotal
       });
@@ -308,31 +326,75 @@ export default function Financeiro() {
       message: 'Confirma o recebimento desta cobrança? Isso irá gerar automaticamente o repasse para o proprietário.',
       onConfirm: async () => {
         try {
-          const contrato = contratos[cobranca.contratoId];
+          // Buscar a versão mais recente da cobrança para garantir que temos os itens adicionais
+          const cobSnap = await getDocs(query(collection(db, 'cobrancas'), where('__name__', '==', cobranca.id)));
+          if (cobSnap.empty) throw new Error("Cobrança não encontrada");
+          const latestCobranca = { id: cobSnap.docs[0].id, ...cobSnap.docs[0].data() } as Cobranca;
+
+          const contrato = contratos[latestCobranca.contratoId];
           if (!contrato) throw new Error("Contrato não encontrado");
 
           const batch = writeBatch(db);
           
-          const cobRef = doc(db, 'cobrancas', cobranca.id);
+          const cobRef = doc(db, 'cobrancas', latestCobranca.id);
           batch.update(cobRef, {
             status: 'Pago',
             dataPagamento: new Date().toISOString()
           });
 
           const repasseRef = doc(collection(db, 'repasses'));
-          const taxaAdmValor = (cobranca.valorAluguel * contrato.taxaAdministracao) / 100;
+          const taxaAdmValor = Number(((latestCobranca.valorAluguel * contrato.taxaAdministracao) / 100).toFixed(2));
           
-          batch.set(repasseRef, {
-            contratoId: cobranca.contratoId,
+          // Copiar itens da cobrança para o repasse
+          const itensAdicionaisRepasse = (latestCobranca.itensAdicionais || []).map(item => ({
+            ...item,
+            // Acréscimos na cobrança (como utilitários) costumam ser neutros para o proprietário
+            // Despesas do proprietário viram descontos no repasse
+            tipo: item.tipo === 'despesa_proprietario' ? 'desconto' : 'nenhum'
+          }));
+
+          // Cálculo do valor líquido inicial baseado na lógica do usuário:
+          // Valor Líquido = Valor Recebido (Total do Inquilino) - Taxa Adm - Valor Total do Condomínio (pago pela ADM)
+          // E subtraímos as despesas do proprietário que foram ignoradas no valorRecebido
+          const valorRecebido = Number(latestCobranca.valorTotal.toFixed(2));
+          const valorCondominioTotal = Number((latestCobranca.valorCondominio || 0).toFixed(2));
+          const valorIptuTotal = Number((latestCobranca.valorIptu || 0).toFixed(2));
+          
+          let valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotal - valorIptuTotal;
+
+          // Subtrair despesas do proprietário que não entraram no valorRecebido
+          (latestCobranca.itensAdicionais || []).forEach(item => {
+            if (item.tipo === 'despesa_proprietario') {
+              valorLiquido -= item.valor;
+            }
+          });
+
+          valorLiquido = Number(valorLiquido.toFixed(2));
+
+          const repasseData = {
+            contratoId: latestCobranca.contratoId,
             proprietarioId: contrato.proprietarioId,
-            cobrancaId: cobranca.id,
-            mesReferencia: cobranca.mesReferencia,
-            valorRecebido: cobranca.valorTotal,
+            cobrancaId: latestCobranca.id,
+            mesReferencia: latestCobranca.mesReferencia,
+            valorAluguel: Number(latestCobranca.valorAluguel.toFixed(2)),
+            valorRecebido: valorRecebido,
             taxaAdministracao: taxaAdmValor,
-            valorLiquido: cobranca.valorTotal - taxaAdmValor - (cobranca.valorCondominio || 0),
+            valorCondominio: valorCondominioTotal,
+            tipoCondominio: 'desconto', // Desconto porque a ADM paga o boleto total
+            valorIptu: valorIptuTotal,
+            tipoIptu: 'desconto',
+            condoProporcionalDesc: latestCobranca.condoProporcionalDesc || '',
+            condoProporcionalValor: latestCobranca.condoProporcionalValor || 0,
+            iptuProporcionalDesc: latestCobranca.iptuProporcionalDesc || '',
+            iptuProporcionalValor: latestCobranca.iptuProporcionalValor || 0,
+            itensAdicionais: itensAdicionaisRepasse,
+            valorLiquido: valorLiquido,
             status: 'Pendente',
             createdAt: new Date().toISOString()
-          });
+          };
+
+          console.log('Gerando repasse com itens:', itensAdicionaisRepasse);
+          batch.set(repasseRef, repasseData);
 
           await batch.commit();
           setConfirmAction(null);
@@ -365,12 +427,29 @@ export default function Financeiro() {
 
   const openEditRepasse = (rep: Repasse) => {
     const cobranca = cobrancas.find(c => c.id === rep.cobrancaId);
+    
+    // Garantir que os valores venham da cobrança se não existirem no repasse (fallback robusto)
+    const valorCondominio = rep.valorCondominio !== undefined && rep.valorCondominio !== null 
+      ? rep.valorCondominio 
+      : (cobranca?.valorCondominio || 0);
+      
+    const valorIptu = rep.valorIptu !== undefined && rep.valorIptu !== null 
+      ? rep.valorIptu 
+      : (cobranca?.valorIptu || 0);
+
     resetRepasse({
       ...rep,
-      valorCondominio: rep.valorCondominio !== undefined ? rep.valorCondominio : (cobranca?.valorCondominio || 0),
+      valorAluguel: Number((rep.valorAluguel || (cobranca?.valorAluguel || 0)).toFixed(2)),
+      valorRecebido: Number((rep.valorRecebido || (cobranca?.valorTotal || 0)).toFixed(2)),
+      taxaAdministracao: Number((rep.taxaAdministracao || 0).toFixed(2)),
+      valorCondominio: Number(valorCondominio.toFixed(2)),
       tipoCondominio: rep.tipoCondominio || 'desconto',
-      valorIptu: rep.valorIptu !== undefined ? rep.valorIptu : (cobranca?.valorIptu || 0),
-      tipoIptu: rep.tipoIptu || 'desconto'
+      valorIptu: Number(valorIptu.toFixed(2)),
+      tipoIptu: rep.tipoIptu || 'desconto',
+      condoProporcionalDesc: rep.condoProporcionalDesc || (cobranca?.condoProporcionalDesc || ''),
+      condoProporcionalValor: Number((rep.condoProporcionalValor || (cobranca?.condoProporcionalValor || 0)).toFixed(2)),
+      iptuProporcionalDesc: rep.iptuProporcionalDesc || (cobranca?.iptuProporcionalDesc || ''),
+      iptuProporcionalValor: Number((rep.iptuProporcionalValor || (cobranca?.iptuProporcionalValor || 0)).toFixed(2))
     });
     setEditingItensRepasse(rep.itensAdicionais || []);
     setEditingRepasse(rep);
@@ -380,14 +459,16 @@ export default function Financeiro() {
     try {
       if (!editingRepasse) return;
       
-      const taxaAdministracao = Number(data.taxaAdministracao) || 0;
-      const valorCondominio = Number(data.valorCondominio) || 0;
-      const valorIptu = Number(data.valorIptu) || 0;
-      const tipoCondominio = data.tipoCondominio || 'desconto';
-      const tipoIptu = data.tipoIptu || 'desconto';
+      const valorAluguel = Number(Number(data.valorAluguel).toFixed(2)) || 0;
+      const valorRecebido = Number(Number(data.valorRecebido).toFixed(2)) || 0;
+      const taxaAdministracao = Number(Number(data.taxaAdministracao).toFixed(2)) || 0;
+      const valorCondominio = Number(Number(data.valorCondominio).toFixed(2)) || 0;
+      const valorIptu = Number(Number(data.valorIptu).toFixed(2)) || 0;
+      const tipoCondominio = data.tipoCondominio || 'nenhum';
+      const tipoIptu = data.tipoIptu || 'nenhum';
       
-      // Calculate base liquid value
-      let valorLiquido = editingRepasse.valorRecebido - taxaAdministracao;
+      // Cálculo do valor líquido baseado no Valor Recebido (Total do Inquilino)
+      let valorLiquido = valorRecebido - taxaAdministracao;
       
       if (tipoCondominio === 'desconto') {
         valorLiquido -= valorCondominio;
@@ -402,13 +483,21 @@ export default function Financeiro() {
         else if (item.tipo === 'desconto') valorLiquido -= item.valor;
       });
 
+      valorLiquido = Number(valorLiquido.toFixed(2));
+
       const repRef = doc(db, 'repasses', editingRepasse.id);
       await updateDoc(repRef, {
+        valorAluguel,
+        valorRecebido,
         taxaAdministracao,
         valorCondominio,
         tipoCondominio,
         valorIptu,
         tipoIptu,
+        condoProporcionalDesc: data.condoProporcionalDesc || '',
+        condoProporcionalValor: Number(Number(data.condoProporcionalValor).toFixed(2)) || 0,
+        iptuProporcionalDesc: data.iptuProporcionalDesc || '',
+        iptuProporcionalValor: Number(Number(data.iptuProporcionalValor).toFixed(2)) || 0,
         itensAdicionais: editingItensRepasse,
         valorLiquido
       });
@@ -753,6 +842,23 @@ export default function Financeiro() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-4 pt-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Condomínio Proporcional</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Descrição" {...register('condoProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    <input type="number" step="0.01" placeholder="Valor" {...register('condoProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">IPTU Proporcional</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Descrição" {...register('iptuProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    <input type="number" step="0.01" placeholder="Valor" {...register('iptuProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                </div>
+              </div>
+
               <div className="pt-4 border-t border-gray-100">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-sm font-semibold text-[#1E2732]">Itens Adicionais (Água, Luz, etc)</h3>
@@ -781,7 +887,7 @@ export default function Financeiro() {
                       type="number" 
                       step="0.01"
                       placeholder="Valor" 
-                      value={item.valor || ''}
+                      value={item.valor}
                       onChange={(e) => {
                         const newItens = [...editingItens];
                         newItens[index].valor = Number(e.target.value);
@@ -837,29 +943,58 @@ export default function Financeiro() {
               </button>
             </div>
             <form onSubmit={handleSubmitRepasse(onSubmitEditRepasse)} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Taxa de Administração (R$)</label>
-                  <input type="number" step="0.01" {...registerRepasse('taxaAdministracao', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  <label className="text-sm font-medium text-gray-700">Aluguel (R$)</label>
+                  <input type="number" step="0.01" {...registerRepasse('valorAluguel', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Condomínio (R$)</label>
+                  <label className="text-sm font-medium text-gray-700">Valor Recebido (Total Inquilino)</label>
+                  <input type="number" step="0.01" {...registerRepasse('valorRecebido', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Taxa Adm. (R$)</label>
+                  <input type="number" step="0.01" {...registerRepasse('taxaAdministracao', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Condomínio Total (Boleto ADM)</label>
                   <div className="flex gap-2">
-                    <input type="number" step="0.01" {...registerRepasse('valorCondominio')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <select {...registerRepasse('tipoCondominio')} className="p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
-                      <option value="desconto">Desconto</option>
-                      <option value="repasse">Repasse</option>
+                    <input type="number" step="0.01" {...registerRepasse('valorCondominio')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    <select {...registerRepasse('tipoCondominio')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
+                      <option value="nenhum">Nenhum</option>
+                      <option value="desconto">Desconto (Pago pela ADM)</option>
+                      <option value="repasse">Repasse (Recebido do Inquilino)</option>
                     </select>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">IPTU (R$)</label>
+                  <label className="text-sm font-medium text-gray-700">IPTU Total (Boleto ADM)</label>
                   <div className="flex gap-2">
-                    <input type="number" step="0.01" {...registerRepasse('valorIptu')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <select {...registerRepasse('tipoIptu')} className="p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
-                      <option value="desconto">Desconto</option>
-                      <option value="repasse">Repasse</option>
+                    <input type="number" step="0.01" {...registerRepasse('valorIptu')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    <select {...registerRepasse('tipoIptu')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
+                      <option value="nenhum">Nenhum</option>
+                      <option value="desconto">Desconto (Pago pela ADM)</option>
+                      <option value="repasse">Repasse (Recebido do Inquilino)</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 pt-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Condomínio Proporcional</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Descrição" {...registerRepasse('condoProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    <input type="number" step="0.01" placeholder="Valor" {...registerRepasse('condoProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">IPTU Proporcional</label>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Descrição" {...registerRepasse('iptuProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    <input type="number" step="0.01" placeholder="Valor" {...registerRepasse('iptuProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
                   </div>
                 </div>
               </div>
@@ -892,7 +1027,7 @@ export default function Financeiro() {
                       type="number" 
                       step="0.01"
                       placeholder="Valor" 
-                      value={item.valor || ''}
+                      value={item.valor}
                       onChange={(e) => {
                         const newItens = [...editingItensRepasse];
                         newItens[index].valor = Number(e.target.value);
@@ -904,11 +1039,12 @@ export default function Financeiro() {
                       value={item.tipo}
                       onChange={(e) => {
                         const newItens = [...editingItensRepasse];
-                        newItens[index].tipo = e.target.value as 'acrescimo' | 'desconto';
+                        newItens[index].tipo = e.target.value as any;
                         setEditingItensRepasse(newItens);
                       }}
                       className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
                     >
+                      <option value="nenhum">Nenhum</option>
                       <option value="acrescimo">Acréscimo</option>
                       <option value="desconto">Desconto</option>
                     </select>

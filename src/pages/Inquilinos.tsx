@@ -239,6 +239,7 @@ export default function Inquilinos() {
                     <option value="Fiador">Fiador</option>
                     <option value="Seguro Fiança">Seguro Fiança</option>
                     <option value="Caução">Caução</option>
+                    <option value="Título de capitalização">Título de capitalização</option>
                     <option value="Sem Garantia">Sem Garantia</option>
                   </select>
                 </div>

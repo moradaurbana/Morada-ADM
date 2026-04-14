@@ -393,6 +393,20 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
           </View>
         )}
 
+        {cobranca?.condoProporcionalValor > 0 && (
+          <View style={[styles.tableRow, styles.tableRowHighlight]}>
+            <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
+            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
+          </View>
+        )}
+
+        {cobranca?.iptuProporcionalValor > 0 && (
+          <View style={[styles.tableRow, styles.tableRowHighlight]}>
+            <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
+            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
+          </View>
+        )}
+
         {cobranca?.taxasExtras > 0 && (
           <View style={styles.tableRow}>
             <Text style={styles.tableColLeft}>Taxas Extras</Text>
@@ -433,6 +447,7 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
 };
 
 export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inquilino, imovel }: any) => {
+  const valorAluguel = repasse?.valorAluguel !== undefined ? repasse.valorAluguel : cobranca?.valorAluguel;
   const valorCondoBase = repasse?.valorCondominio !== undefined ? repasse.valorCondominio : cobranca?.valorCondominio;
   const itensCondo = repasse?.itensAdicionais?.filter((item: any) => item.fazParteCondominio) || [];
   const valorCondoTotal = valorCondoBase + itensCondo.reduce((acc: number, item: any) => acc + item.valor, 0);
@@ -498,6 +513,20 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
           </View>
         )}
 
+        {cobranca?.condoProporcionalValor > 0 && (
+          <View style={[styles.tableRow, styles.tableRowHighlight]}>
+            <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
+            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
+          </View>
+        )}
+
+        {cobranca?.iptuProporcionalValor > 0 && (
+          <View style={[styles.tableRow, styles.tableRowHighlight]}>
+            <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
+            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
+          </View>
+        )}
+
         {cobranca?.taxasExtras > 0 && (
           <View style={styles.tableRow}>
             <Text style={styles.tableColLeft}>Taxas Extras</Text>
@@ -544,39 +573,39 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
           <Text style={styles.tableHeaderRight}>VALOR</Text>
         </View>
         
-        {valorCondoTotal > 0 && (
-          <>
-            <View style={[styles.tableRow, styles.tableRowHighlight]}>
-              <Text style={styles.tableColLeft}>Condomínio ({repasse?.tipoCondominio === 'repasse' ? 'repassado ao proprietário' : 'boleto pago pela ADM'})</Text>
-              <Text style={styles.tableColRight}>{repasse?.tipoCondominio === 'repasse' ? '' : '- '}{formatCurrency(valorCondoTotal)}</Text>
-            </View>
-            {/* Detalhamento do condomínio */}
-            <View style={styles.tableRow}>
-              <Text style={[styles.tableColLeft, { paddingLeft: 10, fontSize: 8, color: '#666' }]}>• Cota Condominial</Text>
-              <Text style={[styles.tableColRight, { fontSize: 8, color: '#666' }]}>{formatCurrency(valorCondoBase)}</Text>
-            </View>
-            {itensCondo.map((item: any, idx: number) => (
-              <View key={`condo-detail-${idx}`} style={styles.tableRow}>
-                <Text style={[styles.tableColLeft, { paddingLeft: 10, fontSize: 8, color: '#666' }]}>• {item.descricao}</Text>
-                <Text style={[styles.tableColRight, { fontSize: 8, color: '#666' }]}>{formatCurrency(item.valor)}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {(repasse?.valorIptu !== undefined ? repasse.valorIptu : cobranca?.valorIptu) > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>IPTU ({repasse?.tipoIptu === 'repasse' ? 'repassado ao proprietário' : 'pago pela ADM'})</Text>
-            <Text style={styles.tableColRight}>{repasse?.tipoIptu === 'repasse' ? '' : '- '}{formatCurrency(repasse?.valorIptu !== undefined ? repasse.valorIptu : cobranca?.valorIptu)}</Text>
-          </View>
-        )}
+        <View style={styles.tableRow}>
+          <Text style={styles.tableColLeft}>VALOR TOTAL RECEBIDO (LOCATÁRIO)</Text>
+          <Text style={styles.tableColRight}>{formatCurrency(repasse?.valorRecebido)}</Text>
+        </View>
         
         <View style={styles.tableRow}>
-          <Text style={styles.tableColLeft}>Administração ({contrato?.taxaAdministracao}%):</Text>
+          <Text style={styles.tableColLeft}>TAXA DE ADMINISTRAÇÃO ({contrato?.taxaAdministracao}%):</Text>
           <Text style={styles.tableColRight}>- {formatCurrency(repasse?.taxaAdministracao)}</Text>
         </View>
 
-        {itensOutros.map((item: any, index: number) => (
+        {valorCondoTotal > 0 && repasse?.tipoCondominio === 'desconto' && (
+          <View style={[styles.tableRow, styles.tableRowHighlight]}>
+            <Text style={styles.tableColLeft}>
+              CONDOMÍNIO TOTAL (BOLETO PAGO PELA ADM)
+            </Text>
+            <Text style={styles.tableColRight}>
+              - {formatCurrency(valorCondoTotal)}
+            </Text>
+          </View>
+        )}
+
+        {(repasse?.valorIptu !== undefined ? repasse.valorIptu : cobranca?.valorIptu) > 0 && repasse?.tipoIptu === 'desconto' && (
+          <View style={[styles.tableRow, styles.tableRowHighlight]}>
+            <Text style={styles.tableColLeft}>
+              IPTU TOTAL (BOLETO PAGO PELA ADM)
+            </Text>
+            <Text style={styles.tableColRight}>
+              - {formatCurrency(repasse?.valorIptu !== undefined ? repasse.valorIptu : cobranca?.valorIptu)}
+            </Text>
+          </View>
+        )}
+
+        {itensOutros.filter((item: any) => item.tipo !== 'nenhum').map((item: any, index: number) => (
           <View key={index} style={[styles.tableRow, index % 2 === 0 ? styles.tableRowHighlight : {}]}>
             <Text style={styles.tableColLeft}>{item.descricao}</Text>
             <Text style={styles.tableColRight}>
