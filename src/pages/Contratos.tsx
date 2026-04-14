@@ -97,7 +97,11 @@ export default function Contratos() {
         getDocs(collection(db, 'inquilinos'))
       ]);
       
-      setContratos(contratosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contrato)));
+      const fetchedContratos = contratosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contrato));
+      // Ordenar por código em ordem crescente
+      fetchedContratos.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true, sensitivity: 'base' }));
+      
+      setContratos(fetchedContratos);
       setImoveis(imoveisSnap.docs.map(doc => ({ id: doc.id, codigo: doc.data().codigo, endereco: doc.data().endereco } as ReferenceData)));
       setProprietarios(propsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as ReferenceData)));
       setInquilinos(inqsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as ReferenceData)));
@@ -163,7 +167,29 @@ export default function Contratos() {
   };
 
   const openNewModal = () => {
-    reset({ status: 'Ativo', indiceReajuste: 'IGP-M', diaVencimento: 5, taxaAdministracao: 10 });
+    // Gerar próximo código CT-xxxx
+    let nextCodigo = 'CT-0001';
+    if (contratos.length > 0) {
+      const codigos = contratos
+        .map(c => {
+          const match = c.codigo.match(/CT-(\d+)/i);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(n => n > 0);
+      
+      if (codigos.length > 0) {
+        const maxCodigo = Math.max(...codigos);
+        nextCodigo = `CT-${(maxCodigo + 1).toString().padStart(4, '0')}`;
+      }
+    }
+
+    reset({ 
+      codigo: nextCodigo,
+      status: 'Ativo', 
+      indiceReajuste: 'IGP-M', 
+      diaVencimento: 5, 
+      taxaAdministracao: 10 
+    });
     setEditingId(null);
     setIsModalOpen(true);
   };
@@ -332,7 +358,12 @@ export default function Contratos() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-gray-700">Código *</label>
-                      <input {...register('codigo', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" placeholder="Ex: CT-001" />
+                      <input 
+                        {...register('codigo', { required: true })} 
+                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-gray-50" 
+                        placeholder="Ex: CT-001"
+                        readOnly={!editingId}
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-gray-700">Status *</label>
