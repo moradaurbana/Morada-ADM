@@ -811,115 +811,117 @@ export default function Financeiro() {
       {/* Modal de Edição de Cobrança */}
       {editingCobranca && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
               <h2 className="text-xl font-bold text-[#1E2732]">Revisar Cobrança</h2>
               <button onClick={() => setEditingCobranca(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit(onSubmitEditCobranca)} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Vencimento</label>
-                  <input type="date" {...register('dataVencimento', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Aluguel (R$)</label>
-                  <input type="number" step="0.01" {...register('valorAluguel', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Condomínio (R$)</label>
-                  <input type="number" step="0.01" {...register('valorCondominio')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">IPTU (R$)</label>
-                  <input type="number" step="0.01" {...register('valorIptu')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Taxas Extras (R$)</label>
-                  <input type="number" step="0.01" {...register('taxasExtras')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 pt-2">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Condomínio Proporcional</label>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Descrição" {...register('condoProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <input type="number" step="0.01" placeholder="Valor" {...register('condoProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+            <form onSubmit={handleSubmit(onSubmitEditCobranca)} className="flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Vencimento</label>
+                    <input type="date" {...register('dataVencimento', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Aluguel (R$)</label>
+                    <input type="number" step="0.01" {...register('valorAluguel', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Condomínio (R$)</label>
+                    <input type="number" step="0.01" {...register('valorCondominio')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">IPTU (R$)</label>
+                    <input type="number" step="0.01" {...register('valorIptu')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Taxas Extras (R$)</label>
+                    <input type="number" step="0.01" {...register('taxasExtras')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">IPTU Proporcional</label>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Descrição" {...register('iptuProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <input type="number" step="0.01" placeholder="Valor" {...register('iptuProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+
+                <div className="grid grid-cols-1 gap-4 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Condomínio Proporcional</label>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Descrição" {...register('condoProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <input type="number" step="0.01" placeholder="Valor" {...register('condoProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">IPTU Proporcional</label>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Descrição" {...register('iptuProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <input type="number" step="0.01" placeholder="Valor" {...register('iptuProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-semibold text-[#1E2732]">Itens Adicionais (Água, Luz, etc)</h3>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditingItens([...editingItens, { id: Date.now().toString(), descricao: '', valor: 0, tipo: 'acrescimo' }])}
-                    className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 flex items-center gap-1"
-                  >
-                    <Plus size={12} /> Adicionar
-                  </button>
-                </div>
-                {editingItens.map((item, index) => (
-                  <div key={item.id} className="flex gap-2 mb-2 items-start">
-                    <input 
-                      type="text" 
-                      placeholder="Descrição" 
-                      value={item.descricao}
-                      onChange={(e) => {
-                        const newItens = [...editingItens];
-                        newItens[index].descricao = e.target.value;
-                        setEditingItens(newItens);
-                      }}
-                      className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
-                    />
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      placeholder="Valor" 
-                      value={item.valor}
-                      onChange={(e) => {
-                        const newItens = [...editingItens];
-                        newItens[index].valor = Number(e.target.value);
-                        setEditingItens(newItens);
-                      }}
-                      className="w-24 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
-                    />
-                    <select
-                      value={item.tipo}
-                      onChange={(e) => {
-                        const newItens = [...editingItens];
-                        newItens[index].tipo = e.target.value as 'acrescimo' | 'desconto' | 'despesa_proprietario';
-                        setEditingItens(newItens);
-                      }}
-                      className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
-                    >
-                      <option value="acrescimo">Acréscimo</option>
-                      <option value="desconto">Desconto</option>
-                      <option value="despesa_proprietario">Desp. Proprietário</option>
-                    </select>
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-semibold text-[#1E2732]">Itens Adicionais (Água, Luz, etc)</h3>
                     <button 
                       type="button" 
-                      onClick={() => setEditingItens(editingItens.filter((_, i) => i !== index))}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      onClick={() => setEditingItens([...editingItens, { id: Date.now().toString(), descricao: '', valor: 0, tipo: 'acrescimo' }])}
+                      className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 flex items-center gap-1"
                     >
-                      <Trash2 size={16} />
+                      <Plus size={12} /> Adicionar
                     </button>
                   </div>
-                ))}
+                  {editingItens.map((item, index) => (
+                    <div key={item.id} className="flex gap-2 mb-2 items-start">
+                      <input 
+                        type="text" 
+                        placeholder="Descrição" 
+                        value={item.descricao}
+                        onChange={(e) => {
+                          const newItens = [...editingItens];
+                          newItens[index].descricao = e.target.value;
+                          setEditingItens(newItens);
+                        }}
+                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                      />
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="Valor" 
+                        value={item.valor}
+                        onChange={(e) => {
+                          const newItens = [...editingItens];
+                          newItens[index].valor = Number(e.target.value);
+                          setEditingItens(newItens);
+                        }}
+                        className="w-24 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                      />
+                      <select
+                        value={item.tipo}
+                        onChange={(e) => {
+                          const newItens = [...editingItens];
+                          newItens[index].tipo = e.target.value as 'acrescimo' | 'desconto' | 'despesa_proprietario';
+                          setEditingItens(newItens);
+                        }}
+                        className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                      >
+                        <option value="acrescimo">Acréscimo</option>
+                        <option value="desconto">Desconto</option>
+                        <option value="despesa_proprietario">Desp. Proprietário</option>
+                      </select>
+                      <button 
+                        type="button" 
+                        onClick={() => setEditingItens(editingItens.filter((_, i) => i !== index))}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
                 <button type="button" onClick={() => setEditingCobranca(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
                   Cancelar
                 </button>
@@ -935,145 +937,147 @@ export default function Financeiro() {
       {/* Modal de Edição de Repasse */}
       {editingRepasse && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
               <h2 className="text-xl font-bold text-[#1E2732]">Revisar Repasse</h2>
               <button onClick={() => setEditingRepasse(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmitRepasse(onSubmitEditRepasse)} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Aluguel (R$)</label>
-                  <input type="number" step="0.01" {...registerRepasse('valorAluguel', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Valor Recebido (Total Inquilino)</label>
-                  <input type="number" step="0.01" {...registerRepasse('valorRecebido', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Taxa Adm. (R$)</label>
-                  <input type="number" step="0.01" {...registerRepasse('taxaAdministracao', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Condomínio Total (Boleto ADM)</label>
-                  <div className="flex gap-2">
-                    <input type="number" step="0.01" {...registerRepasse('valorCondominio')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <select {...registerRepasse('tipoCondominio')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
-                      <option value="nenhum">Nenhum</option>
-                      <option value="desconto">Desconto (Pago pela ADM)</option>
-                      <option value="repasse">Repasse (Recebido do Inquilino)</option>
-                    </select>
+            <form onSubmit={handleSubmitRepasse(onSubmitEditRepasse)} className="flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Aluguel (R$)</label>
+                    <input type="number" step="0.01" {...registerRepasse('valorAluguel', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Valor Recebido (Total Inquilino)</label>
+                    <input type="number" step="0.01" {...registerRepasse('valorRecebido', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Taxa Adm. (R$)</label>
+                    <input type="number" step="0.01" {...registerRepasse('taxaAdministracao', { required: true })} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">IPTU Total (Boleto ADM)</label>
-                  <div className="flex gap-2">
-                    <input type="number" step="0.01" {...registerRepasse('valorIptu')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <select {...registerRepasse('tipoIptu')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
-                      <option value="nenhum">Nenhum</option>
-                      <option value="desconto">Desconto (Pago pela ADM)</option>
-                      <option value="repasse">Repasse (Recebido do Inquilino)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 pt-2">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Condomínio Proporcional</label>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Descrição" {...registerRepasse('condoProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <input type="number" step="0.01" placeholder="Valor" {...registerRepasse('condoProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">IPTU Proporcional</label>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="Descrição" {...registerRepasse('iptuProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                    <input type="number" step="0.01" placeholder="Valor" {...registerRepasse('iptuProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-sm font-semibold text-[#1E2732]">Itens Adicionais</h3>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditingItensRepasse([...editingItensRepasse, { id: Date.now().toString(), descricao: '', valor: 0, tipo: 'acrescimo' }])}
-                    className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 flex items-center gap-1"
-                  >
-                    <Plus size={12} /> Adicionar
-                  </button>
-                </div>
-                {editingItensRepasse.map((item, index) => (
-                  <div key={item.id} className="flex gap-2 mb-2 items-start">
-                    <input 
-                      type="text" 
-                      placeholder="Descrição" 
-                      value={item.descricao}
-                      onChange={(e) => {
-                        const newItens = [...editingItensRepasse];
-                        newItens[index].descricao = e.target.value;
-                        setEditingItensRepasse(newItens);
-                      }}
-                      className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
-                    />
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      placeholder="Valor" 
-                      value={item.valor}
-                      onChange={(e) => {
-                        const newItens = [...editingItensRepasse];
-                        newItens[index].valor = Number(e.target.value);
-                        setEditingItensRepasse(newItens);
-                      }}
-                      className="w-24 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
-                    />
-                    <select
-                      value={item.tipo}
-                      onChange={(e) => {
-                        const newItens = [...editingItensRepasse];
-                        newItens[index].tipo = e.target.value as any;
-                        setEditingItensRepasse(newItens);
-                      }}
-                      className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
-                    >
-                      <option value="nenhum">Nenhum</option>
-                      <option value="acrescimo">Acréscimo</option>
-                      <option value="desconto">Desconto</option>
-                    </select>
-                    <div className="flex items-center gap-1 h-10 px-2 border border-gray-300 rounded-lg bg-gray-50">
-                      <input 
-                        type="checkbox" 
-                        id={`condo-${item.id}`}
-                        checked={item.fazParteCondominio || false}
-                        onChange={(e) => {
-                          const newItens = [...editingItensRepasse];
-                          newItens[index].fazParteCondominio = e.target.checked;
-                          setEditingItensRepasse(newItens);
-                        }}
-                        className="rounded text-[#F47B20] focus:ring-[#F47B20]"
-                      />
-                      <label htmlFor={`condo-${item.id}`} className="text-[10px] leading-tight text-gray-600 font-medium">Boleto Cond.</label>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Condomínio Total (Boleto ADM)</label>
+                    <div className="flex gap-2">
+                      <input type="number" step="0.01" {...registerRepasse('valorCondominio')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <select {...registerRepasse('tipoCondominio')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
+                        <option value="nenhum">Nenhum</option>
+                        <option value="desconto">Desconto (Pago pela ADM)</option>
+                        <option value="repasse">Repasse (Recebido do Inquilino)</option>
+                      </select>
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">IPTU Total (Boleto ADM)</label>
+                    <div className="flex gap-2">
+                      <input type="number" step="0.01" {...registerRepasse('valorIptu')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <select {...registerRepasse('tipoIptu')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none bg-white">
+                        <option value="nenhum">Nenhum</option>
+                        <option value="desconto">Desconto (Pago pela ADM)</option>
+                        <option value="repasse">Repasse (Recebido do Inquilino)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Condomínio Proporcional</label>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Descrição" {...registerRepasse('condoProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <input type="number" step="0.01" placeholder="Valor" {...registerRepasse('condoProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">IPTU Proporcional</label>
+                    <div className="flex gap-2">
+                      <input type="text" placeholder="Descrição" {...registerRepasse('iptuProporcionalDesc')} className="flex-1 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <input type="number" step="0.01" placeholder="Valor" {...registerRepasse('iptuProporcionalValor')} className="w-40 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-sm font-semibold text-[#1E2732]">Itens Adicionais</h3>
                     <button 
                       type="button" 
-                      onClick={() => setEditingItensRepasse(editingItensRepasse.filter((_, i) => i !== index))}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      onClick={() => setEditingItensRepasse([...editingItensRepasse, { id: Date.now().toString(), descricao: '', valor: 0, tipo: 'acrescimo' }])}
+                      className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 flex items-center gap-1"
                     >
-                      <Trash2 size={16} />
+                      <Plus size={12} /> Adicionar
                     </button>
                   </div>
-                ))}
+                  {editingItensRepasse.map((item, index) => (
+                    <div key={item.id} className="flex gap-2 mb-2 items-start">
+                      <input 
+                        type="text" 
+                        placeholder="Descrição" 
+                        value={item.descricao}
+                        onChange={(e) => {
+                          const newItens = [...editingItensRepasse];
+                          newItens[index].descricao = e.target.value;
+                          setEditingItensRepasse(newItens);
+                        }}
+                        className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                      />
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="Valor" 
+                        value={item.valor}
+                        onChange={(e) => {
+                          const newItens = [...editingItensRepasse];
+                          newItens[index].valor = Number(e.target.value);
+                          setEditingItensRepasse(newItens);
+                        }}
+                        className="w-24 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                      />
+                      <select
+                        value={item.tipo}
+                        onChange={(e) => {
+                          const newItens = [...editingItensRepasse];
+                          newItens[index].tipo = e.target.value as any;
+                          setEditingItensRepasse(newItens);
+                        }}
+                        className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                      >
+                        <option value="nenhum">Nenhum</option>
+                        <option value="acrescimo">Acréscimo</option>
+                        <option value="desconto">Desconto</option>
+                      </select>
+                      <div className="flex items-center gap-1 h-10 px-2 border border-gray-300 rounded-lg bg-gray-50">
+                        <input 
+                          type="checkbox" 
+                          id={`condo-${item.id}`}
+                          checked={item.fazParteCondominio || false}
+                          onChange={(e) => {
+                            const newItens = [...editingItensRepasse];
+                            newItens[index].fazParteCondominio = e.target.checked;
+                            setEditingItensRepasse(newItens);
+                          }}
+                          className="rounded text-[#F47B20] focus:ring-[#F47B20]"
+                        />
+                        <label htmlFor={`condo-${item.id}`} className="text-[10px] leading-tight text-gray-600 font-medium">Boleto Cond.</label>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setEditingItensRepasse(editingItensRepasse.filter((_, i) => i !== index))}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100 mt-6">
+              <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
                 <button type="button" onClick={() => setEditingRepasse(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">
                   Cancelar
                 </button>
