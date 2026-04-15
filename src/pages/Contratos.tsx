@@ -507,7 +507,7 @@ export default function Contratos() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-gray-700">Taxa Adm. (%)</label>
-                      <input type="number" step="0.1" {...register('taxaAdministracao')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
+                      <input type="number" step="0.00001" {...register('taxaAdministracao')} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none" />
                     </div>
                   </div>
 
