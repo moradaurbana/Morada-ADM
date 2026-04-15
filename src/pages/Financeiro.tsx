@@ -982,6 +982,11 @@ export default function Financeiro() {
                         <option value="repasse">Repasse (Recebido do Inquilino)</option>
                       </select>
                     </div>
+                    {imoveis[contratos[editingRepasse.contratoId]?.imovelId]?.iptuPagoPelaAdm && (
+                      <p className="text-[10px] text-blue-600 font-medium flex items-center gap-1 mt-1">
+                        <AlertCircle size={10} /> Obs: Este imóvel está sinalizado com IPTU pago pela administração.
+                      </p>
+                    )}
                   </div>
                 </div>
 

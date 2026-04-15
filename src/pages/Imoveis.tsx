@@ -19,6 +19,7 @@ interface Imovel {
   valorCondominio: number;
   valorIptu: number;
   iptuAtivo: boolean;
+  iptuPagoPelaAdm: boolean;
   iptuNumParcelas: number;
   iptuMesInicio: number;
   caracteristicas: string;
@@ -95,6 +96,7 @@ export default function Imoveis() {
         valorCondominio: Number(data.valorCondominio) || 0,
         valorIptu: Number(data.valorIptu) || 0,
         iptuAtivo: data.iptuAtivo || false,
+        iptuPagoPelaAdm: data.iptuPagoPelaAdm || false,
         iptuNumParcelas: Number(data.iptuNumParcelas) || 10,
         iptuMesInicio: Number(data.iptuMesInicio) || 2,
         coProprietariosIds: (data.coProprietariosIds || []).filter(id => id !== '')
@@ -421,9 +423,14 @@ export default function Imoveis() {
                 </div>
 
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
                     <input type="checkbox" {...register('iptuAtivo')} id="iptuAtivo" className="w-4 h-4 text-[#F47B20] border-gray-300 rounded focus:ring-[#F47B20]" />
                     <label htmlFor="iptuAtivo" className="text-sm font-semibold text-[#1E2732]">Ativar cobrança automática de IPTU</label>
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-4">
+                    <input type="checkbox" {...register('iptuPagoPelaAdm')} id="iptuPagoPelaAdm" className="w-4 h-4 text-[#F47B20] border-gray-300 rounded focus:ring-[#F47B20]" />
+                    <label htmlFor="iptuPagoPelaAdm" className="text-sm font-semibold text-[#1E2732]">IPTU pago pela administração</label>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
