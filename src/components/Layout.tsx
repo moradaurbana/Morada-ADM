@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   X,
-  Building2
+  Building2,
+  Settings
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -32,6 +33,7 @@ export default function Layout() {
     { to: '/contratos', icon: FileText, label: 'Contratos' },
     { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
     { to: '/relatorios', icon: PieChart, label: 'Relatórios (IR)' },
+    { to: '/manutencao', icon: Settings, label: 'Manutenção' },
   ];
 
   return (

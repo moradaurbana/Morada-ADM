@@ -12,6 +12,7 @@ import Imoveis from './pages/Imoveis';
 import Contratos from './pages/Contratos';
 import Financeiro from './pages/Financeiro';
 import Relatorios from './pages/Relatorios';
+import Manutencao from './pages/Manutencao';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="contratos" element={<Contratos />} />
         <Route path="financeiro" element={<Financeiro />} />
         <Route path="relatorios" element={<Relatorios />} />
+        <Route path="manutencao" element={<Manutencao />} />
       </Route>
     </Routes>
   );
