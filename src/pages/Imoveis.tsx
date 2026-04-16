@@ -76,8 +76,16 @@ export default function Imoveis() {
         getDocs(collection(db, 'proprietarios'))
       ]);
       
-      setImoveis(imoveisSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Imovel)));
-      setProprietarios(propsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as Proprietario)));
+      const imoveisData = imoveisSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Imovel));
+      const propsData = propsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as Proprietario));
+
+      // Ordenar imóveis por código (ascendente)
+      imoveisData.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true, sensitivity: 'base' }));
+      // Ordenar proprietários por nome (para os selects)
+      propsData.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+
+      setImoveis(imoveisData);
+      setProprietarios(propsData);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'imoveis');
     } finally {

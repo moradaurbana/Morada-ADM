@@ -38,6 +38,10 @@ export default function Proprietarios() {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, 'proprietarios'));
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Proprietario));
+      
+      // Ordenar por nome (alfabética)
+      data.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+      
       setProprietarios(data);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'proprietarios');

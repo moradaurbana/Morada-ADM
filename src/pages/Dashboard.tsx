@@ -6,10 +6,13 @@ import {
   TrendingDown, 
   AlertCircle, 
   FileText,
-  DollarSign
+  DollarSign,
+  Bell,
+  ArrowRight
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, parseISO, differenceInDays, setYear, getYear, addYears, isBefore } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import { 
   BarChart, 
   Bar, 
@@ -30,6 +33,9 @@ export default function Dashboard() {
     contratosAtivos: 0,
     receitaImobiliaria: 0
   });
+
+  const [alertSummary, setAlertSummary] = useState({ reajustes: 0, vencimentos: 0 });
+  const navigate = useNavigate();
 
   const [chartData, setChartData] = useState<any[]>([]);
 
@@ -118,6 +124,32 @@ export default function Dashboard() {
 
       setChartData(chartDataReal);
 
+      // Calcular Alertas (40 dias)
+      const hoje = new Date();
+      let reajustesAlert = 0;
+      let vencimentosAlert = 0;
+
+      contratosSnap.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        
+        // Vencimento
+        const dataTermino = parseISO(data.dataTermino);
+        const diasTermino = differenceInDays(dataTermino, hoje);
+        if (diasTermino <= 40 && diasTermino >= -30) vencimentosAlert++;
+
+        // Reajuste
+        const dataInicio = parseISO(data.dataInicio);
+        let proximoAniv = setYear(dataInicio, getYear(hoje));
+        if (isBefore(proximoAniv, hoje) && differenceInDays(hoje, proximoAniv) > 30) {
+          proximoAniv = addYears(proximoAniv, 1);
+        }
+        const diasReajuste = differenceInDays(proximoAniv, hoje);
+        const mesesDesdeInicio = Math.floor(differenceInDays(hoje, dataInicio) / 30);
+        if (mesesDesdeInicio >= 11 && diasReajuste <= 40 && diasReajuste >= -30) reajustesAlert++;
+      });
+
+      setAlertSummary({ reajustes: reajustesAlert, vencimentos: vencimentosAlert });
+
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, 'dashboard_metrics');
     } finally {
@@ -151,6 +183,29 @@ export default function Dashboard() {
           })}
         </select>
       </div>
+
+      {(alertSummary.reajustes > 0 || alertSummary.vencimentos > 0) && (
+        <div 
+          onClick={() => navigate('/alertas')}
+          className="bg-white border-l-4 border-orange-500 p-4 rounded-xl shadow-sm flex items-center justify-between cursor-pointer hover:bg-orange-50/30 transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-100 text-orange-600 rounded-full animate-pulse">
+              <Bell size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#1E2732]">Alertas de Gestão (Próximos 40 dias)</h3>
+              <p className="text-sm text-gray-500">
+                Existem <span className="font-bold text-orange-600">{alertSummary.reajustes} reajustes</span> e <span className="font-bold text-red-600">{alertSummary.vencimentos} vencimentos</span> necessitando tratativa.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[#F47B20] font-bold text-sm">
+            Ver detalhes
+            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard 

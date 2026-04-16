@@ -38,6 +38,10 @@ export default function Inquilinos() {
       setLoading(true);
       const querySnapshot = await getDocs(collection(db, 'inquilinos'));
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Inquilino));
+      
+      // Ordenar por nome (alfabética)
+      data.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+      
       setInquilinos(data);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'inquilinos');

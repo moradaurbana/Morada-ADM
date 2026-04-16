@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Plus, Edit2, Trash2, X, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, FileText, AlertTriangle, Clock } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { format } from 'date-fns';
+import { format, differenceInDays, parseISO, setYear, getYear, isBefore, addYears } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface Contrato {
@@ -101,10 +102,20 @@ export default function Contratos() {
       // Ordenar por código em ordem crescente
       fetchedContratos.sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true, sensitivity: 'base' }));
       
+      const propsData = propsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as ReferenceData));
+      const inqsData = inqsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as ReferenceData));
+      const imosData = imoveisSnap.docs.map(doc => ({ id: doc.id, codigo: doc.data().codigo, endereco: doc.data().endereco } as ReferenceData));
+
+      // Ordenar proprietários e inquilinos por nome (alfabética)
+      propsData.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
+      inqsData.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
+      // Ordenar imóveis por código (ascendente)
+      imosData.sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' }));
+
       setContratos(fetchedContratos);
-      setImoveis(imoveisSnap.docs.map(doc => ({ id: doc.id, codigo: doc.data().codigo, endereco: doc.data().endereco } as ReferenceData)));
-      setProprietarios(propsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as ReferenceData)));
-      setInquilinos(inqsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome } as ReferenceData)));
+      setImoveis(imosData);
+      setProprietarios(propsData);
+      setInquilinos(inqsData);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'contratos');
     } finally {
@@ -289,6 +300,52 @@ export default function Contratos() {
                         <p className="text-xs text-gray-500 mt-1">
                           {contrato.dataInicio ? format(new Date(contrato.dataInicio), 'dd/MM/yyyy') : ''} a {contrato.dataTermino ? format(new Date(contrato.dataTermino), 'dd/MM/yyyy') : ''}
                         </p>
+                        
+                        {/* Alertas Rápidos na Tabela */}
+                        <div className="mt-2 space-y-1">
+                          {(() => {
+                            const hoje = new Date();
+                            const alerts = [];
+                            
+                            // Vencimento
+                            const dTermino = contrato.dataTermino ? parseISO(contrato.dataTermino) : null;
+                            if (dTermino) {
+                              const diff = differenceInDays(dTermino, hoje);
+                              if (diff <= 40 && diff >= -30) {
+                                alerts.push(
+                                  <div key="venc" className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                    diff <= 15 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
+                                  }`}>
+                                    <Clock size={10} /> 
+                                    {diff < 0 ? `Vencido há ${Math.abs(diff)}d` : `Vence em ${diff}d`}
+                                  </div>
+                                );
+                              }
+                            }
+
+                            // Reajuste
+                            const dInicio = contrato.dataInicio ? parseISO(contrato.dataInicio) : null;
+                            if (dInicio) {
+                              let proximo = setYear(dInicio, getYear(hoje));
+                              if (isBefore(proximo, hoje) && differenceInDays(hoje, proximo) > 30) {
+                                proximo = addYears(proximo, 1);
+                              }
+                              const diffR = differenceInDays(proximo, hoje);
+                              const meses = Math.floor(differenceInDays(hoje, dInicio) / 30);
+                              if (meses >= 11 && diffR <= 40 && diffR >= -30) {
+                                alerts.push(
+                                  <div key="reaj" className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                    diffR <= 15 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
+                                  }`}>
+                                    <AlertTriangle size={10} /> 
+                                    {diffR < 0 ? `Reajuste atrasado ${Math.abs(diffR)}d` : `Reajuste em ${diffR}d`}
+                                  </div>
+                                );
+                              }
+                            }
+                            return alerts;
+                          })()}
+                        </div>
                       </td>
                       <td className="p-4">
                         <p className="text-sm text-gray-700 truncate max-w-[200px]" title={getImovelInfo(contrato.imovelId)}>

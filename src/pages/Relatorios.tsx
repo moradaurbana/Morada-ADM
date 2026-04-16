@@ -306,8 +306,15 @@ export default function Relatorios() {
       ]);
       const primaryInqIds = new Set(allContratos.map((c: any) => c.inquilinoId));
 
-      setProprietarios(allProps.filter(p => primaryPropIds.has(p.id)));
-      setInquilinos(allInqs.filter(i => primaryInqIds.has(i.id)));
+      const filteredProps = allProps.filter((p: any) => primaryPropIds.has(p.id));
+      const filteredInqs = allInqs.filter((i: any) => primaryInqIds.has(i.id));
+
+      // Ordenar por nome (alfabética)
+      filteredProps.sort((a: any, b: any) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+      filteredInqs.sort((a: any, b: any) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+
+      setProprietarios(filteredProps);
+      setInquilinos(filteredInqs);
       setContratos(allContratos);
       setImoveis(allImoveis);
     } catch (error) {
