@@ -10,7 +10,7 @@ import {
   Bell,
   ArrowRight
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths, parseISO, differenceInDays, setYear, getYear, addYears, isBefore } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, parseISO, differenceInDays, setYear, getYear, addYears, isBefore, isAfter } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -144,8 +144,18 @@ export default function Dashboard() {
           proximoAniv = addYears(proximoAniv, 1);
         }
         const diasReajuste = differenceInDays(proximoAniv, hoje);
+
+        // Regra de supressão (mesma de Alertas.tsx)
+        let jaAjustado = false;
+        if (data.lastAdjustmentDate) {
+          const ultimaData = parseISO(data.lastAdjustmentDate);
+          if (getYear(ultimaData) === getYear(proximoAniv) || isAfter(ultimaData, subMonths(proximoAniv, 1))) {
+            jaAjustado = true;
+          }
+        }
+
         const mesesDesdeInicio = Math.floor(differenceInDays(hoje, dataInicio) / 30);
-        if (mesesDesdeInicio >= 11 && diasReajuste <= 40 && diasReajuste >= -30) reajustesAlert++;
+        if (!jaAjustado && mesesDesdeInicio >= 11 && diasReajuste <= 40 && diasReajuste >= -30) reajustesAlert++;
       });
 
       setAlertSummary({ reajustes: reajustesAlert, vencimentos: vencimentosAlert });

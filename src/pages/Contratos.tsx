@@ -3,7 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Plus, Edit2, Trash2, X, FileText, AlertTriangle, Clock } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { format, differenceInDays, parseISO, setYear, getYear, isBefore, addYears } from 'date-fns';
+import { format, differenceInDays, parseISO, setYear, getYear, isBefore, addYears, isAfter, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -23,6 +23,7 @@ interface Contrato {
   taxaAdministracao: number;
   taxasAdicionais: string;
   status: 'Ativo' | 'Encerrado' | 'Inadimplente';
+  lastAdjustmentDate?: string;
   coInquilinosIds?: string[];
   coProprietariosIds?: string[];
   createdAt: string;
@@ -331,8 +332,18 @@ export default function Contratos() {
                                 proximo = addYears(proximo, 1);
                               }
                               const diffR = differenceInDays(proximo, hoje);
+
+                              // Regra de supressão (mesma de Alertas e Dashboard)
+                              let jaAjustado = false;
+                              if (contrato.lastAdjustmentDate) {
+                                const ultimaData = parseISO(contrato.lastAdjustmentDate);
+                                if (getYear(ultimaData) === getYear(proximo) || isAfter(ultimaData, subMonths(proximo, 1))) {
+                                  jaAjustado = true;
+                                }
+                              }
+
                               const meses = Math.floor(differenceInDays(hoje, dInicio) / 30);
-                              if (meses >= 11 && diffR <= 40 && diffR >= -30) {
+                              if (!jaAjustado && meses >= 11 && diffR <= 40 && diffR >= -30) {
                                 alerts.push(
                                   <div key="reaj" className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded ${
                                     diffR <= 15 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
