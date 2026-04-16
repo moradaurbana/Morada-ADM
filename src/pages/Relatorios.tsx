@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Search } from 'lucide-react';
 import { Document, Page, Text, View, StyleSheet, PDFDownloadLink, Image } from '@react-pdf/renderer';
 import { LOGOS } from '../constants/images';
 
@@ -273,10 +273,12 @@ export default function Relatorios() {
   
   const [proprietarios, setProprietarios] = useState<any[]>([]);
   const [inquilinos, setInquilinos] = useState<any[]>([]);
-  const [repasses, setRepasses] = useState<any[]>([]);
-  const [cobrancas, setCobrancas] = useState<any[]>([]);
+  const [repasses, setRepasses] = useState<any[][]>([]);
+  const [cobrancas, setCobrancas] = useState<any[][]>([]);
   const [contratos, setContratos] = useState<any[]>([]);
   const [imoveis, setImoveis] = useState<any[]>([]);
+  const [activePessoaId, setActivePessoaId] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     fetchBaseData();
@@ -302,6 +304,7 @@ export default function Relatorios() {
   const gerarRelatorio = async (pessoaId: string) => {
     try {
       setLoading(true);
+      setActivePessoaId(pessoaId);
       if (tipo === 'proprietario') {
         const q = query(
           collection(db, 'repasses'),
@@ -313,13 +316,23 @@ export default function Relatorios() {
         
         const filtrado = data.filter(r => r.mesReferencia.endsWith(anoBase.toString()));
         
-        filtrado.sort((a, b) => {
-          const [mA] = a.mesReferencia.split('/');
-          const [mB] = b.mesReferencia.split('/');
-          return Number(mA) - Number(mB);
+        // Agrupar por contrato
+        const agrupado: Record<string, any[]> = {};
+        filtrado.forEach(r => {
+          if (!agrupado[r.contratoId]) agrupado[r.contratoId] = [];
+          agrupado[r.contratoId].push(r);
         });
 
-        setRepasses(filtrado);
+        // Ordenar cada grupo por mês
+        Object.values(agrupado).forEach(grupo => {
+          grupo.sort((a, b) => {
+            const [mA] = a.mesReferencia.split('/');
+            const [mB] = b.mesReferencia.split('/');
+            return Number(mA) - Number(mB);
+          });
+        });
+
+        setRepasses(Object.values(agrupado));
       } else if (tipo === 'inquilino') {
         const q = query(
           collection(db, 'cobrancas'),
@@ -331,13 +344,23 @@ export default function Relatorios() {
         
         const filtrado = data.filter(c => c.mesReferencia.endsWith(anoBase.toString()));
         
-        filtrado.sort((a, b) => {
-          const [mA] = a.mesReferencia.split('/');
-          const [mB] = b.mesReferencia.split('/');
-          return Number(mA) - Number(mB);
+        // Agrupar por contrato
+        const agrupado: Record<string, any[]> = {};
+        filtrado.forEach(c => {
+          if (!agrupado[c.contratoId]) agrupado[c.contratoId] = [];
+          agrupado[c.contratoId].push(c);
         });
 
-        setCobrancas(filtrado);
+        // Ordenar cada grupo por mês
+        Object.values(agrupado).forEach(grupo => {
+          grupo.sort((a, b) => {
+            const [mA] = a.mesReferencia.split('/');
+            const [mB] = b.mesReferencia.split('/');
+            return Number(mA) - Number(mB);
+          });
+        });
+
+        setCobrancas(Object.values(agrupado));
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'relatorios_gerar');
@@ -380,12 +403,27 @@ export default function Relatorios() {
 
         {tipo !== 'dimob' && (
           <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-lg font-semibold text-[#1E2732] mb-4">
-              Selecione o {tipo === 'proprietario' ? 'Proprietário' : 'Inquilino'}
-            </h3>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <h3 className="text-lg font-semibold text-[#1E2732]">
+                Selecione o {tipo === 'proprietario' ? 'Proprietário' : 'Inquilino'}
+              </h3>
+              
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Pesquisar por nome..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none text-sm"
+                />
+              </div>
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(tipo === 'proprietario' ? proprietarios : inquilinos).map(pessoa => (
+              {(tipo === 'proprietario' ? proprietarios : inquilinos)
+                .filter(pessoa => pessoa.nome.toLowerCase().includes(busca.toLowerCase()))
+                .map(pessoa => (
                 <div key={pessoa.id} className="p-4 border border-gray-200 rounded-xl hover:border-[#F47B20] transition-colors flex flex-col justify-between">
                   <div>
                     <p className="font-bold text-[#1E2732]">{pessoa.nome}</p>
@@ -399,33 +437,39 @@ export default function Relatorios() {
                     Visualizar Dados
                   </button>
 
-                  {(tipo === 'proprietario' ? repasses : cobrancas).length > 0 && 
-                   (tipo === 'proprietario' ? repasses[0].proprietarioId : cobrancas[0].inquilinoId) === pessoa.id && (
-                    <PDFDownloadLink 
-                      key={`${tipo}-${pessoa.id}-${Date.now()}`}
-                      document={tipo === 'proprietario' 
-                        ? <InformeIRProprietarioPDF 
-                            proprietario={pessoa} 
-                            inquilino={inquilinos.find(i => i.id === contratos.find(c => c.id === repasses.find(r => r.proprietarioId === pessoa.id)?.contratoId)?.inquilinoId)}
-                            imovel={imoveis.find(im => im.id === contratos.find(c => c.id === repasses.find(r => r.proprietarioId === pessoa.id)?.contratoId)?.imovelId)}
-                            ano={anoBase} 
-                            repasses={repasses.filter(r => r.proprietarioId === pessoa.id)} 
-                          />
-                        : <InformeIRInquilinoPDF 
-                            inquilino={pessoa} 
-                            proprietario={proprietarios.find(p => p.id === contratos.find(c => c.id === cobrancas.find(cb => cb.inquilinoId === pessoa.id)?.contratoId)?.proprietarioId)}
-                            imovel={imoveis.find(im => im.id === contratos.find(c => c.id === cobrancas.find(cb => cb.inquilinoId === pessoa.id)?.contratoId)?.imovelId)}
-                            ano={anoBase} 
-                            cobrancas={cobrancas.filter(c => c.inquilinoId === pessoa.id)} 
-                          />
-                      }
-                      fileName={`Informe_IR_${tipo === 'proprietario' ? 'Proprietario' : 'Inquilino'}_${anoBase}_${pessoa.nome.replace(/\s+/g, '_')}.pdf`}
-                      className="mt-2 flex items-center justify-center gap-2 w-full bg-[#1E2732] text-white py-2 rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
-                    >
-                      {/* @ts-ignore */}
-                      {({ loading }) => (loading ? 'Gerando PDF...' : <><Download size={16} /> Baixar PDF</>)}
-                    </PDFDownloadLink>
-                  )}
+                  {activePessoaId === pessoa.id && (tipo === 'proprietario' ? repasses : cobrancas).map((grupo, idx) => {
+                    const contrato = contratos.find(c => c.id === grupo[0].contratoId);
+                    const imovel = imoveis.find(im => im.id === contrato?.imovelId);
+                    const inquilino = inquilinos.find(i => i.id === contrato?.inquilinoId);
+                    const proprietario = proprietarios.find(p => p.id === contrato?.proprietarioId);
+
+                    return (
+                      <PDFDownloadLink 
+                        key={`${tipo}-${pessoa.id}-${idx}-${Date.now()}`}
+                        document={tipo === 'proprietario' 
+                          ? <InformeIRProprietarioPDF 
+                              proprietario={pessoa} 
+                              inquilino={inquilino}
+                              imovel={imovel}
+                              ano={anoBase} 
+                              repasses={grupo} 
+                            />
+                          : <InformeIRInquilinoPDF 
+                              inquilino={pessoa} 
+                              proprietario={proprietario}
+                              imovel={imovel}
+                              ano={anoBase} 
+                              cobrancas={grupo} 
+                            />
+                        }
+                        fileName={`Informe_IR_${tipo === 'proprietario' ? 'Proprietario' : 'Inquilino'}_${anoBase}_${pessoa.nome.replace(/\s+/g, '_')}_${imovel?.codigo || idx}.pdf`}
+                        className="mt-2 flex items-center justify-center gap-2 w-full bg-[#1E2732] text-white py-2 rounded-lg hover:bg-gray-800 transition-colors text-[10px] font-medium"
+                      >
+                        {/* @ts-ignore */}
+                        {({ loading }) => (loading ? 'Gerando...' : <><Download size={14} /> Baixar PDF ({imovel?.codigo || 'Contrato'})</>)}
+                      </PDFDownloadLink>
+                    );
+                  })}
                 </div>
               ))}
             </div>
