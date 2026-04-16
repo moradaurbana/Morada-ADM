@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Plus, Edit2, Trash2, X, MapPin } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, MapPin, Search } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -43,6 +43,7 @@ export default function Imoveis() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('Todos');
+  const [filtroCampo, setFiltroCampo] = useState<'todos' | 'codigo' | 'endereco' | 'proprietario'>('todos');
 
   const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<Imovel>();
   const coProprietariosIds = watch('coProprietariosIds') || [];
@@ -155,8 +156,23 @@ export default function Imoveis() {
   };
 
   const filteredImoveis = imoveis.filter(imovel => {
-    const matchesSearch = imovel.codigo.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          imovel.endereco.toLowerCase().includes(searchTerm.toLowerCase());
+    const termo = searchTerm.toLowerCase();
+    const propName = getProprietarioName(imovel.proprietarioId).toLowerCase();
+    
+    const matchesSearch = !termo || (
+      filtroCampo === 'todos' ? (
+        imovel.codigo.toLowerCase().includes(termo) || 
+        imovel.endereco.toLowerCase().includes(termo) ||
+        propName.includes(termo)
+      ) : filtroCampo === 'codigo' ? (
+        imovel.codigo.toLowerCase().includes(termo)
+      ) : filtroCampo === 'endereco' ? (
+        imovel.endereco.toLowerCase().includes(termo)
+      ) : filtroCampo === 'proprietario' ? (
+        propName.includes(termo)
+      ) : false
+    );
+
     const matchesStatus = filterStatus === 'Todos' || imovel.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -177,24 +193,46 @@ export default function Imoveis() {
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-        <input 
-          type="text"
-          placeholder="Buscar por código ou endereço..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20]"
-        />
-        <select 
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20]"
-        >
-          <option value="Todos">Todos os Status</option>
-          <option value="Disponível">Disponível</option>
-          <option value="Locado">Locado</option>
-          <option value="Inativo">Inativo</option>
-        </select>
+      <div className="flex flex-col lg:flex-row gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 items-end">
+        <div className="flex-1 w-full space-y-1">
+          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Filtro de Busca</label>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select
+              value={filtroCampo}
+              onChange={(e) => setFiltroCampo(e.target.value as any)}
+              className="p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20] text-sm bg-gray-50 font-medium text-gray-700 w-full sm:w-48"
+            >
+              <option value="todos">Buscar em Tudo</option>
+              <option value="codigo">Código</option>
+              <option value="endereco">Endereço</option>
+              <option value="proprietario">Proprietário</option>
+            </select>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                type="text"
+                placeholder={`Pesquisar ${filtroCampo === 'todos' ? 'imóveis' : filtroCampo}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20] text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full lg:w-48 space-y-1">
+          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-1">Status</label>
+          <select 
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20] text-sm bg-gray-50 font-medium text-gray-700"
+          >
+            <option value="Todos">Todos os Status</option>
+            <option value="Disponível">Disponível</option>
+            <option value="Locado">Locado</option>
+            <option value="Inativo">Inativo</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (

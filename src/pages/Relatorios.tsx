@@ -279,6 +279,7 @@ export default function Relatorios() {
   const [imoveis, setImoveis] = useState<any[]>([]);
   const [activePessoaId, setActivePessoaId] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [filtroCampo, setFiltroCampo] = useState<'todos' | 'nome' | 'documento' | 'contrato' | 'endereco'>('todos');
 
   useEffect(() => {
     fetchBaseData();
@@ -292,10 +293,23 @@ export default function Relatorios() {
         getDocs(collection(db, 'contratos')),
         getDocs(collection(db, 'imoveis'))
       ]);
-      setProprietarios(pSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setInquilinos(iSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setContratos(cSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setImoveis(imSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+      const allProps = pSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allInqs = iSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allContratos = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const allImoveis = imSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Identificar IDs de proprietários e inquilinos PRINCIPAIS
+      const primaryPropIds = new Set([
+        ...allImoveis.map((im: any) => im.proprietarioId),
+        ...allContratos.map((c: any) => c.proprietarioId)
+      ]);
+      const primaryInqIds = new Set(allContratos.map((c: any) => c.inquilinoId));
+
+      setProprietarios(allProps.filter(p => primaryPropIds.has(p.id)));
+      setInquilinos(allInqs.filter(i => primaryInqIds.has(i.id)));
+      setContratos(allContratos);
+      setImoveis(allImoveis);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'relatorios_base');
     }
@@ -403,75 +417,152 @@ export default function Relatorios() {
 
         {tipo !== 'dimob' && (
           <div className="border-t border-gray-100 pt-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <h3 className="text-lg font-semibold text-[#1E2732]">
-                Selecione o {tipo === 'proprietario' ? 'Proprietário' : 'Inquilino'}
-              </h3>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+              <div className="space-y-1">
+                <h3 className="text-lg font-semibold text-[#1E2732]">
+                  Selecione o {tipo === 'proprietario' ? 'Proprietário' : 'Inquilino'}
+                </h3>
+                <p className="text-xs text-gray-400">Clique em "Visualizar Dados" para carregar os informes por contrato.</p>
+              </div>
               
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Pesquisar por nome..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none text-sm"
-                />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative w-full sm:w-48">
+                  <select
+                    value={filtroCampo}
+                    onChange={(e) => setFiltroCampo(e.target.value as any)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none text-xs bg-gray-50 uppercase font-bold text-gray-600"
+                  >
+                    <option value="todos">Buscar em Tudo</option>
+                    <option value="nome">Nome</option>
+                    <option value="documento">CPF/CNPJ</option>
+                    <option value="contrato">Cód. Contrato</option>
+                    <option value="endereco">Endereço</option>
+                  </select>
+                </div>
+                <div className="relative w-full md:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder={`Pesquisar ${filtroCampo === 'todos' ? 'por dados...' : filtroCampo}...`}
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none text-sm shadow-sm"
+                  />
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(tipo === 'proprietario' ? proprietarios : inquilinos)
-                .filter(pessoa => pessoa.nome.toLowerCase().includes(busca.toLowerCase()))
-                .map(pessoa => (
-                <div key={pessoa.id} className="p-4 border border-gray-200 rounded-xl hover:border-[#F47B20] transition-colors flex flex-col justify-between">
-                  <div>
-                    <p className="font-bold text-[#1E2732]">{pessoa.nome}</p>
-                    <p className="text-sm text-gray-500">Doc: {pessoa.documento}</p>
-                  </div>
-                  
-                  <button 
-                    onClick={() => gerarRelatorio(pessoa.id)}
-                    className="mt-4 text-sm text-[#F47B20] font-medium hover:underline text-left"
-                  >
-                    Visualizar Dados
-                  </button>
+                .filter(pessoa => {
+                  const termo = busca.toLowerCase();
+                  if (!termo) return true;
 
-                  {activePessoaId === pessoa.id && (tipo === 'proprietario' ? repasses : cobrancas).map((grupo, idx) => {
-                    const contrato = contratos.find(c => c.id === grupo[0].contratoId);
-                    const imovel = imoveis.find(im => im.id === contrato?.imovelId);
-                    const inquilino = inquilinos.find(i => i.id === contrato?.inquilinoId);
-                    const proprietario = proprietarios.find(p => p.id === contrato?.proprietarioId);
+                  const pessoaContratos = contratos.filter(c => 
+                    tipo === 'proprietario' ? c.proprietarioId === pessoa.id : c.inquilinoId === pessoa.id
+                  );
+                  const pessoaImoveis = imoveis.filter(im => 
+                    pessoaContratos.some(c => c.imovelId === im.id)
+                  );
 
-                    return (
-                      <PDFDownloadLink 
-                        key={`${tipo}-${pessoa.id}-${idx}-${Date.now()}`}
-                        document={tipo === 'proprietario' 
-                          ? <InformeIRProprietarioPDF 
-                              proprietario={pessoa} 
-                              inquilino={inquilino}
-                              imovel={imovel}
-                              ano={anoBase} 
-                              repasses={grupo} 
-                            />
-                          : <InformeIRInquilinoPDF 
-                              inquilino={pessoa} 
-                              proprietario={proprietario}
-                              imovel={imovel}
-                              ano={anoBase} 
-                              cobrancas={grupo} 
-                            />
-                        }
-                        fileName={`Informe_IR_${tipo === 'proprietario' ? 'Proprietario' : 'Inquilino'}_${anoBase}_${pessoa.nome.replace(/\s+/g, '_')}_${imovel?.codigo || idx}.pdf`}
-                        className="mt-2 flex items-center justify-center gap-2 w-full bg-[#1E2732] text-white py-2 rounded-lg hover:bg-gray-800 transition-colors text-[10px] font-medium"
+                  const matchNome = pessoa.nome.toLowerCase().includes(termo);
+                  const matchDoc = pessoa.documento.toLowerCase().includes(termo);
+                  const matchContrato = pessoaContratos.some(c => c.codigo.toLowerCase().includes(termo));
+                  const matchEndereco = pessoaImoveis.some(im => 
+                    im.endereco.toLowerCase().includes(termo) || 
+                    im.codigo.toLowerCase().includes(termo)
+                  );
+
+                  if (filtroCampo === 'nome') return matchNome;
+                  if (filtroCampo === 'documento') return matchDoc;
+                  if (filtroCampo === 'contrato') return matchContrato;
+                  if (filtroCampo === 'endereco') return matchEndereco;
+                  return matchNome || matchDoc || matchContrato || matchEndereco;
+                })
+                .map(pessoa => {
+                  const pessoaContratos = contratos.filter(c => 
+                    tipo === 'proprietario' ? c.proprietarioId === pessoa.id : c.inquilinoId === pessoa.id
+                  );
+                  const totalContratos = pessoaContratos.length;
+
+                  return (
+                    <div key={pessoa.id} className="bg-white p-5 border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-[#F47B20]/30 transition-all flex flex-col group">
+                      <div className="mb-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-[#1E2732] group-hover:text-[#F47B20] transition-colors line-clamp-1">{pessoa.nome}</h4>
+                          <span className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                            ID: {pessoa.id.slice(0, 4)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                          <span className="bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{pessoa.documento}</span>
+                          <span className="bg-orange-50 text-orange-600 px-2 py-0.5 rounded border border-orange-100 font-medium">
+                            {totalContratos} {totalContratos === 1 ? 'Contrato' : 'Contratos'}
+                          </span>
+                        </div>
+
+                        {/* Lista breve de imóveis vinculados */}
+                        <div className="space-y-1.5 border-t border-gray-50 pt-3">
+                          {pessoaContratos.slice(0, 2).map(c => {
+                            const im = imoveis.find(i => i.id === c.imovelId);
+                            return (
+                              <div key={c.id} className="flex items-start gap-2 text-[10px] text-gray-400">
+                                <FileText size={12} className="mt-0.5 shrink-0" />
+                                <span className="truncate">
+                                  <span className="font-medium text-gray-600">{c.codigo}:</span> {im?.endereco}, {im?.numero}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {totalContratos > 2 && (
+                            <p className="text-[10px] text-gray-400 italic pl-5">+ {totalContratos - 2} outros imóveis</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => gerarRelatorio(pessoa.id)}
+                        className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 bg-gray-50 text-gray-600 rounded-xl hover:bg-[#F47B20] hover:text-white transition-all text-sm font-bold border border-gray-100 hover:border-[#F47B20] shadow-sm active:scale-[0.98]"
                       >
-                        {/* @ts-ignore */}
-                        {({ loading }) => (loading ? 'Gerando...' : <><Download size={14} /> Baixar PDF ({imovel?.codigo || 'Contrato'})</>)}
-                      </PDFDownloadLink>
-                    );
-                  })}
-                </div>
-              ))}
+                        Visualizar Dados
+                      </button>
+
+                      {activePessoaId === pessoa.id && (tipo === 'proprietario' ? repasses : cobrancas).map((grupo, idx) => {
+                        const contrato = contratos.find(c => c.id === grupo[0].contratoId);
+                        const imovel = imoveis.find(im => im.id === contrato?.imovelId);
+                        const inquilino = inquilinos.find(i => i.id === contrato?.inquilinoId);
+                        const proprietario = proprietarios.find(p => p.id === contrato?.proprietarioId);
+
+                        return (
+                          <PDFDownloadLink 
+                            key={`${tipo}-${pessoa.id}-${idx}-${Date.now()}`}
+                            document={tipo === 'proprietario' 
+                              ? <InformeIRProprietarioPDF 
+                                  proprietario={pessoa} 
+                                  inquilino={inquilino}
+                                  imovel={imovel}
+                                  ano={anoBase} 
+                                  repasses={grupo} 
+                                />
+                              : <InformeIRInquilinoPDF 
+                                  inquilino={pessoa} 
+                                  proprietario={proprietario}
+                                  imovel={imovel}
+                                  ano={anoBase} 
+                                  cobrancas={grupo} 
+                                />
+                            }
+                            fileName={`Informe_IR_${tipo === 'proprietario' ? 'Proprietario' : 'Inquilino'}_${anoBase}_${pessoa.nome.replace(/\s+/g, '_')}_${imovel?.codigo || idx}.pdf`}
+                            className="mt-2 flex items-center justify-center gap-2 w-full bg-[#1E2732] text-white py-2 rounded-lg hover:bg-gray-800 transition-colors text-[10px] font-medium shadow-md shadow-gray-200"
+                          >
+                            {/* @ts-ignore */}
+                            {({ loading }) => (loading ? 'Gerando...' : <><Download size={14} /> Baixar PDF ({imovel?.codigo || 'Contrato'})</>)}
+                          </PDFDownloadLink>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}
