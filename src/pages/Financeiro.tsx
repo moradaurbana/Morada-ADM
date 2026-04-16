@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, updateDoc, doc, query, where, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, query, where, writeBatch, deleteDoc, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { CheckCircle, Clock, AlertCircle, RefreshCw, Download, Edit2, Trash2, X, Plus } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, RefreshCw, Download, Edit2, Trash2, X, Plus, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { pdf } from '@react-pdf/renderer';
@@ -71,6 +71,8 @@ export default function Financeiro() {
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
   const [baixandoPdf, setBaixandoPdf] = useState<string | null>(null);
+  const [isIndividualModalOpen, setIsIndividualModalOpen] = useState(false);
+  const [searchTermIndividual, setSearchTermIndividual] = useState('');
 
   const [inquilinos, setInquilinos] = useState<Record<string, any>>({});
   const [proprietarios, setProprietarios] = useState<Record<string, any>>({});
@@ -133,15 +135,27 @@ export default function Financeiro() {
     }
   };
 
-  const filteredCobrancas = cobrancas.filter(cob => {
-    const [mes, ano] = cob.mesReferencia.split('/');
-    return mes === selectedMonth && ano === selectedYear;
-  });
+  const filteredCobrancas = cobrancas
+    .filter(cob => {
+      const [mes, ano] = cob.mesReferencia.split('/');
+      return mes === selectedMonth && ano === selectedYear;
+    })
+    .sort((a, b) => {
+      const nomeA = inquilinos[a.inquilinoId]?.nome || '';
+      const nomeB = inquilinos[b.inquilinoId]?.nome || '';
+      return nomeA.localeCompare(nomeB);
+    });
 
-  const filteredRepasses = repasses.filter(rep => {
-    const [mes, ano] = rep.mesReferencia.split('/');
-    return mes === selectedMonth && ano === selectedYear;
-  });
+  const filteredRepasses = repasses
+    .filter(rep => {
+      const [mes, ano] = rep.mesReferencia.split('/');
+      return mes === selectedMonth && ano === selectedYear;
+    })
+    .sort((a, b) => {
+      const nomeA = proprietarios[a.proprietarioId]?.nome || '';
+      const nomeB = proprietarios[b.proprietarioId]?.nome || '';
+      return nomeA.localeCompare(nomeB);
+    });
 
   const confirmarGeracaoCobrancas = () => {
     setConfirmAction({
@@ -170,54 +184,9 @@ export default function Financeiro() {
       let geradas = 0;
 
       for (const [id, contrato] of contratosAtivos as [string, any][]) {
-        const q = query(
-          collection(db, 'cobrancas'), 
-          where('contratoId', '==', id),
-          where('mesReferencia', '==', mesReferencia)
-        );
-        const exists = await getDocs(q);
-        
-        if (exists.empty) {
-          const cobrancaRef = doc(collection(db, 'cobrancas'));
-          
-          const [mes, ano] = mesReferencia.split('/').map(Number);
-          const vencimento = new Date(ano, mes - 1, contrato.diaVencimento);
-
-          const imovel = imoveis[contrato.imovelId];
-          const valorCondominio = imovel?.valorCondominio || 0;
-          
-          let valorIptu = 0;
-          if (imovel?.iptuAtivo) {
-            const mesInicio = Number(imovel.iptuMesInicio) || 2;
-            const numParcelas = Number(imovel.iptuNumParcelas) || 10;
-            const [mesCob] = mesReferencia.split('/').map(Number);
-            
-            // O IPTU é cobrado dentro do ano civil, começando no mês de início
-            // Ex: Início 2 (Fev), 10 parcelas -> vai até mês 11 (Nov)
-            const mesFinal = mesInicio + numParcelas - 1;
-            
-            if (mesCob >= mesInicio && mesCob <= mesFinal) {
-              valorIptu = imovel.valorIptu || 0;
-            }
-          }
-
-          const valorTotal = contrato.valorAluguel + valorCondominio + valorIptu;
-
-          batch.set(cobrancaRef, {
-            contratoId: id,
-            inquilinoId: contrato.inquilinoId,
-            mesReferencia,
-            dataVencimento: vencimento.toISOString(),
-            valorAluguel: contrato.valorAluguel,
-            valorCondominio,
-            valorIptu,
-            taxasExtras: 0,
-            valorTotal,
-            status: 'Pendente',
-            createdAt: new Date().toISOString()
-          });
-          geradas++;
-        }
+        // ... reuso da lógica por baixo
+        const res = await calcularEGerarCobranca(id, contrato, mesReferencia, batch);
+        if (res) geradas++;
       }
 
       if (geradas > 0) {
@@ -229,6 +198,95 @@ export default function Financeiro() {
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'cobrancas_batch');
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const calcularEGerarCobranca = async (id: string, contrato: any, mesReferencia: string, batch?: any) => {
+    const q = query(
+      collection(db, 'cobrancas'), 
+      where('contratoId', '==', id),
+      where('mesReferencia', '==', mesReferencia)
+    );
+    const exists = await getDocs(q);
+    
+    if (!exists.empty) return false;
+
+    const cobrancaRef = doc(collection(db, 'cobrancas'));
+    
+    const [mes, ano] = mesReferencia.split('/').map(Number);
+    const vencimento = new Date(ano, mes - 1, contrato.diaVencimento);
+
+    const imovel = imoveis[contrato.imovelId];
+    const valorCondominio = imovel?.valorCondominio || 0;
+    
+    let valorIptu = 0;
+    if (imovel?.iptuAtivo) {
+      const mesInicio = Number(imovel.iptuMesInicio) || 2;
+      const numParcelas = Number(imovel.iptuNumParcelas) || 10;
+      const [mesCob] = mesReferencia.split('/').map(Number);
+      
+      const mesFinal = mesInicio + numParcelas - 1;
+      
+      if (mesCob >= mesInicio && mesCob <= mesFinal) {
+        valorIptu = imovel.valorIptu || 0;
+      }
+    }
+
+    let valorAluguelContrato = contrato.valorAluguel;
+    if (contrato.lastAdjustmentCycle && contrato.valorAnteriorReajuste !== undefined) {
+      const [mesAniv, anoAniv] = contrato.lastAdjustmentCycle.split('/').map(Number);
+      const [mesCobRef, anoCobRef] = mesReferencia.split('/').map(Number);
+      const dataCompetencia = new Date(anoCobRef, mesCobRef - 1, 1);
+      const dataVigenciaNova = new Date(anoAniv, mesAniv, 1);
+
+      if (dataCompetencia < dataVigenciaNova) {
+        valorAluguelContrato = contrato.valorAnteriorReajuste;
+      }
+    }
+
+    const valorAluguelFinal = Number(valorAluguelContrato.toFixed(2));
+    const valorTotal = Number((valorAluguelFinal + valorCondominio + valorIptu).toFixed(2));
+
+    const cobrancaData = {
+      contratoId: id,
+      inquilinoId: contrato.inquilinoId,
+      mesReferencia,
+      dataVencimento: vencimento.toISOString(),
+      valorAluguel: valorAluguelFinal,
+      valorCondominio,
+      valorIptu,
+      taxasExtras: 0,
+      valorTotal,
+      status: 'Pendente',
+      createdAt: new Date().toISOString()
+    };
+
+    if (batch) {
+      batch.set(cobrancaRef, cobrancaData);
+    } else {
+      await addDoc(collection(db, 'cobrancas'), cobrancaData);
+    }
+    return true;
+  };
+
+  const gerarCobrancaIndividual = async (id: string) => {
+    try {
+      setGerando(true);
+      const mesReferencia = `${mesGeracao}/${anoGeracao}`;
+      const contrato = contratos[id];
+      
+      const sucesso = await calcularEGerarCobranca(id, contrato, mesReferencia);
+      
+      if (sucesso) {
+        setAlertMessage({ title: 'Sucesso', message: `Cobrança gerada com sucesso para o contrato ${contrato.codigo} em ${mesReferencia}!` });
+        fetchData();
+      } else {
+        setAlertMessage({ title: 'Aviso', message: `O contrato ${contrato.codigo} já possui uma cobrança para ${mesReferencia}.` });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'cobranca_individual');
     } finally {
       setGerando(false);
     }
@@ -647,7 +705,15 @@ export default function Financeiro() {
               className="bg-[#F47B20] text-white px-4 py-2 rounded-lg hover:bg-[#d96a1b] transition-colors flex items-center gap-2 font-medium disabled:opacity-50"
             >
               <RefreshCw size={18} className={gerando ? "animate-spin" : ""} />
-              {gerando ? 'Gerando...' : 'Gerar Cobranças'}
+              {gerando ? 'Lote' : 'Gerar em Lote'}
+            </button>
+            <button 
+              onClick={() => setIsIndividualModalOpen(true)}
+              disabled={gerando}
+              className="bg-white text-[#F47B20] border border-[#F47B20] px-4 py-2 rounded-lg hover:bg-orange-50 transition-colors flex items-center gap-2 font-medium disabled:opacity-50"
+            >
+              <Plus size={18} />
+              Individual
             </button>
           </div>
         </div>
@@ -1109,6 +1175,86 @@ export default function Financeiro() {
         message={alertMessage?.message || ''} 
         onClose={() => setAlertMessage(null)} 
       />
+      {/* Modal de Seleção Individual */}
+      {isIndividualModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
+              <h2 className="text-xl font-bold text-[#1E2732]">Gerar Cobrança Individual</h2>
+              <button onClick={() => setIsIndividualModalOpen(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 flex-1 flex flex-col overflow-hidden">
+              <p className="text-sm text-gray-500">
+                Selecione um contrato para gerar a cobrança da competência <strong>{mesGeracao}/{anoGeracao}</strong>.
+              </p>
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="text"
+                  placeholder="Buscar por contrato, inquilino ou proprietário..."
+                  value={searchTermIndividual}
+                  onChange={(e) => setSearchTermIndividual(e.target.value)}
+                  className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20]"
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {Object.entries(contratos)
+                  .filter(([_, c]: [string, any]) => {
+                    const inquilinoNome = (inquilinos[c.inquilinoId]?.nome || '').toLowerCase();
+                    const proprietarioNome = (proprietarios[c.proprietarioId]?.nome || '').toLowerCase();
+                    const search = searchTermIndividual.toLowerCase();
+                    return c.status === 'Ativo' && (
+                      c.codigo.toLowerCase().includes(search) ||
+                      inquilinoNome.includes(search) ||
+                      proprietarioNome.includes(search)
+                    );
+                  })
+                  .map(([id, contrato]: [string, any]) => {
+                    const cobJaExiste = cobrancas.some(cob => cob.contratoId === id && cob.mesReferencia === `${mesGeracao}/${anoGeracao}`);
+                    
+                    return (
+                      <div key={id} className="flex items-center justify-between p-4 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-[#1E2732]">{contrato.codigo}</span>
+                            {cobJaExiste && (
+                              <span className="text-[10px] bg-green-100 text-green-600 font-bold px-1.5 py-0.5 rounded-full uppercase">
+                                Já Gerado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">I: {inquilinos[contrato.inquilinoId]?.nome}</p>
+                          <p className="text-xs text-gray-500">P: {proprietarios[contrato.proprietarioId]?.nome}</p>
+                        </div>
+                        <button 
+                          onClick={() => gerarCobrancaIndividual(id)}
+                          disabled={gerando || cobJaExiste}
+                          className="px-4 py-2 bg-[#F47B20] text-white rounded-lg hover:bg-[#d96a1b] font-medium text-xs disabled:opacity-30 transition-colors"
+                        >
+                          Gerar
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
+              <button 
+                onClick={() => setIsIndividualModalOpen(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

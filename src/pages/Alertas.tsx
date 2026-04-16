@@ -169,6 +169,7 @@ interface Contrato {
   status: 'Ativo' | 'Encerrado' | 'Inadimplente';
   indiceReajuste: 'IGP-M' | 'IPCA' | 'INPC' | 'Outro';
   lastAdjustmentDate?: string;
+  lastAdjustmentCycle?: string;
   valorAnteriorReajuste?: number;
 }
 
@@ -269,11 +270,15 @@ export default function Alertas() {
       setIsProcessing(true);
       const contratoRef = doc(db, 'contratos', selectedAlerta.contratoId);
       
+      const roundedNewValue = Number(newValue.toFixed(2));
+      const targetCycle = format(selectedAlerta.dataAlerta, 'MM/yyyy');
+      
       // Salvar valor atual como anterior para permitir estorno
       await updateDoc(contratoRef, {
-        valorAluguel: newValue,
+        valorAluguel: roundedNewValue,
         valorAnteriorReajuste: selectedAlerta.valorAtual || 0,
         lastAdjustmentDate: new Date().toISOString(),
+        lastAdjustmentCycle: targetCycle,
         lastAdjustmentIndex: indexValue
       });
       
@@ -404,6 +409,7 @@ export default function Alertas() {
       
       const updateData: any = {
         lastAdjustmentDate: deleteField(),
+        lastAdjustmentCycle: deleteField(),
         lastAdjustmentIndex: deleteField()
       };
 
@@ -598,8 +604,8 @@ export default function Alertas() {
       {/* Modal de Processamento de Reajuste */}
       {isAdjustmentModalOpen && selectedAlerta && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
-            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg border border-gray-100 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/50 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-100 text-orange-600 rounded-xl">
                   <Calculator size={20} />
@@ -614,7 +620,7 @@ export default function Alertas() {
               </button>
             </div>
 
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
               <div className="space-y-4">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b pb-2">Dados Informados</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -706,24 +712,24 @@ export default function Alertas() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAdjustmentModalOpen(false)} 
-                  className="flex-1 px-4 py-4 text-gray-500 font-bold hover:bg-gray-100 rounded-2xl transition-all"
-                >
-                  Descartar
-                </button>
-                <button 
-                  type="button" 
-                  disabled={isProcessing || indexValue === 0}
-                  onClick={approveAdjustment}
-                  className="flex-[2] px-4 py-4 bg-[#1E2732] text-white rounded-2xl hover:bg-[#F47B20] font-bold shadow-lg shadow-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isProcessing ? 'Gravando...' : 'Aprovar e Atualizar Contrato'}
-                </button>
-              </div>
+            <div className="p-6 border-t border-gray-100 bg-gray-50/30 flex gap-3 shrink-0">
+              <button 
+                type="button" 
+                onClick={() => setIsAdjustmentModalOpen(false)} 
+                className="flex-1 px-4 py-4 text-gray-500 font-bold hover:bg-gray-100 rounded-2xl transition-all"
+              >
+                Descartar
+              </button>
+              <button 
+                type="button" 
+                disabled={isProcessing || indexValue === 0}
+                onClick={approveAdjustment}
+                className="flex-[2] px-4 py-4 bg-[#1E2732] text-white rounded-2xl hover:bg-[#F47B20] font-bold shadow-lg shadow-gray-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isProcessing ? 'Gravando...' : 'Aprovar e Atualizar Contrato'}
+              </button>
             </div>
           </div>
         </div>

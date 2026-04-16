@@ -31,38 +31,49 @@ service cloud.firestore {
 
     // Usuarios
     match /usuarios/{userId} {
-      allow read: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
 
     // Proprietarios
     match /proprietarios/{docId} {
-      allow read, write: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
     }
 
     // Inquilinos
     match /inquilinos/{docId} {
-      allow read, write: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
     }
 
     // Imoveis
     match /imoveis/{docId} {
-      allow read, write: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
     }
 
     // Contratos
     match /contratos/{docId} {
-      allow read, write: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
     }
 
     // Cobrancas
     match /cobrancas/{docId} {
-      allow read, write: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
     }
 
     // Repasses
     match /repasses/{docId} {
-      allow read, write: if isOperadorOrAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+
+    // Notificações Enviadas (Log do sistema)
+    match /notificacoes_enviadas/{docId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }
