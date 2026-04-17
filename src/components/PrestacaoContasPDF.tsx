@@ -430,7 +430,7 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
       </View>
 
       <Text style={styles.disclaimer}>
-        Recebi de Morada Urbana Consultoria Imobiliária, CNPJ – 52.098.528/0001-49, corretora representante Shirley Cristina Ortega CRECI N° - 231764, a prestação de contas referente ao pagamento de aluguel, IPTU e condomínio no mês referência acima descrito.
+        Recebi de Morada Urbana Consultoria Imobiliária, CNPJ – 52.098.528/0001-49, corretora representante Shirley Cristina Ortega, CRECI N° - 231764, a prestação de contas referente aos encargos locatícios do mês de referência acima descrito.
       </Text>
 
       <View style={styles.signatureLine}>
@@ -621,7 +621,7 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
       </View>
 
       <Text style={styles.disclaimer}>
-        Recebi de Morada Urbana Consultoria Imobiliária, CNPJ 52.098.528/0001-49, corretora representante Shirley Cristina Ortega CRECI N° - 231764, a importância de {formatCurrency(repasse?.valorLiquido)} referente ao repasse do aluguel e encargos no mês referência acima descrito.
+        Recebi de Morada Urbana Consultoria Imobiliária, CNPJ 52.098.528/0001-49, corretora representante Shirley Cristina Ortega, CRECI N° - 231764, a importância de {formatCurrency(repasse?.valorLiquido)} referente ao repasse líquido de valores locatícios do mês de referência acima descrito.
       </Text>
 
       <View style={styles.signatureLine}>

@@ -26,9 +26,10 @@ import {
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [metrics, setMetrics] = useState({
-    recebidoMes: 0,
-    repassadoMes: 0,
+    recebidoPeriodo: 0,
+    repassadoPeriodo: 0,
     inadimplencia: 0,
     contratosAtivos: 0,
     receitaImobiliaria: 0
@@ -41,7 +42,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [selectedYear]);
+  }, [selectedYear, selectedMonth]);
 
   const fetchDashboardData = async () => {
     try {
@@ -58,22 +59,25 @@ export default function Dashboard() {
       const cobrancasRef = collection(db, 'cobrancas');
       const cobrancasSnap = await getDocs(cobrancasRef);
       
-      let recebidoAno = 0;
-      let inadimplenciaAno = 0;
+      let recebidoPeriodo = 0;
+      let inadimplenciaPeriodo = 0;
       const cobrancasPorMes: Record<string, { recebido: number, inadimplencia: number }> = {};
       
       cobrancasSnap.forEach(doc => {
         const data = doc.data();
-        if (data.mesReferencia.endsWith('/' + yearStr)) {
-          const mes = data.mesReferencia.split('/')[0];
+        const [mes, ano] = data.mesReferencia.split('/');
+        
+        if (ano === yearStr) {
           if (!cobrancasPorMes[mes]) cobrancasPorMes[mes] = { recebido: 0, inadimplencia: 0 };
           
+          const isTargetMonth = selectedMonth === 'all' || mes === selectedMonth;
+
           if (data.status === 'Pago') {
-            recebidoAno += data.valorTotal || 0;
             cobrancasPorMes[mes].recebido += data.valorTotal || 0;
+            if (isTargetMonth) recebidoPeriodo += data.valorTotal || 0;
           } else if (data.status === 'Atrasado' || (data.status === 'Pendente' && new Date(data.dataVencimento) < new Date())) {
-            inadimplenciaAno += data.valorTotal || 0;
             cobrancasPorMes[mes].inadimplencia += data.valorTotal || 0;
+            if (isTargetMonth) inadimplenciaPeriodo += data.valorTotal || 0;
           }
         }
       });
@@ -82,31 +86,36 @@ export default function Dashboard() {
       const repassesRef = collection(db, 'repasses');
       const repassesSnap = await getDocs(repassesRef);
       
-      let repassadoAno = 0;
-      let receitaImobiliariaAno = 0;
+      let repassadoPeriodo = 0;
+      let receitaImobiliariaPeriodo = 0;
       const repassesPorMes: Record<string, { repassado: number, receita: number }> = {};
 
       repassesSnap.forEach(doc => {
         const data = doc.data();
-        if (data.mesReferencia.endsWith('/' + yearStr)) {
-          const mes = data.mesReferencia.split('/')[0];
+        const [mes, ano] = data.mesReferencia.split('/');
+        
+        if (ano === yearStr) {
           if (!repassesPorMes[mes]) repassesPorMes[mes] = { repassado: 0, receita: 0 };
           
+          const isTargetMonth = selectedMonth === 'all' || mes === selectedMonth;
+
+          // A receita (taxa adm) é considerada ganha quando a cobrança é paga pelo inquilino
+          repassesPorMes[mes].receita += data.taxaAdministracao || 0;
+          if (isTargetMonth) receitaImobiliariaPeriodo += data.taxaAdministracao || 0;
+
           if (data.status === 'Pago') {
-            repassadoAno += data.valorLiquido || 0;
-            receitaImobiliariaAno += data.taxaAdministracao || 0;
             repassesPorMes[mes].repassado += data.valorLiquido || 0;
-            repassesPorMes[mes].receita += data.taxaAdministracao || 0;
+            if (isTargetMonth) repassadoPeriodo += data.valorLiquido || 0;
           }
         }
       });
 
       setMetrics({
-        recebidoMes: recebidoAno,
-        repassadoMes: repassadoAno,
-        inadimplencia: inadimplenciaAno,
+        recebidoPeriodo,
+        repassadoPeriodo,
+        inadimplencia: inadimplenciaPeriodo,
         contratosAtivos,
-        receitaImobiliaria: receitaImobiliariaAno
+        receitaImobiliaria: receitaImobiliariaPeriodo
       });
 
       // Prepare chart data for 12 months
@@ -182,16 +191,30 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-[#1E2732]">Dashboard Gerencial</h1>
           <p className="text-gray-500">Visão geral do ano de {selectedYear}</p>
         </div>
-        <select 
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(Number(e.target.value))}
-          className="p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20]"
-        >
-          {Array.from({ length: 5 }).map((_, i) => {
-            const year = new Date().getFullYear() - i;
-            return <option key={year} value={year}>{year}</option>;
-          })}
-        </select>
+        <div className="flex gap-2">
+          <select 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20]"
+          >
+            <option value="all">Ano Inteiro</option>
+            {Array.from({ length: 12 }).map((_, i) => {
+              const month = (i + 1).toString().padStart(2, '0');
+              const monthName = format(new Date(2000, i), 'MMMM', { locale: ptBR });
+              return <option key={month} value={month}>{monthName.charAt(0).toUpperCase() + monthName.slice(1)}</option>;
+            })}
+          </select>
+          <select 
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="p-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#F47B20]"
+          >
+            {Array.from({ length: 5 }).map((_, i) => {
+              const year = new Date().getFullYear() - i;
+              return <option key={year} value={year}>{year}</option>;
+            })}
+          </select>
+        </div>
       </div>
 
       {(alertSummary.reajustes > 0 || alertSummary.vencimentos > 0) && (
@@ -219,15 +242,15 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard 
-          title="Recebido no Ano" 
-          value={formatCurrency(metrics.recebidoMes)} 
+          title={selectedMonth === 'all' ? "Recebido no Ano" : "Recebido no Mês"} 
+          value={formatCurrency(metrics.recebidoPeriodo)} 
           icon={TrendingUp} 
           color="text-green-600" 
           bgColor="bg-green-100"
         />
         <MetricCard 
-          title="Repassado" 
-          value={formatCurrency(metrics.repassadoMes)} 
+          title={selectedMonth === 'all' ? "Repassado no Ano" : "Repassado no Mês"} 
+          value={formatCurrency(metrics.repassadoPeriodo)} 
           icon={TrendingDown} 
           color="text-blue-600" 
           bgColor="bg-blue-100"
@@ -240,7 +263,7 @@ export default function Dashboard() {
           bgColor="bg-red-100"
         />
         <MetricCard 
-          title="Receita (Taxas)" 
+          title="Taxa de Administração" 
           value={formatCurrency(metrics.receitaImobiliaria)} 
           icon={DollarSign} 
           color="text-[#F47B20]" 
@@ -257,7 +280,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-[#1E2732] mb-6">Inadimplência, Receita e Contratos Ativos ({selectedYear})</h2>
+          <h2 className="text-lg font-bold text-[#1E2732] mb-6">Inadimplência, Taxa Adm e Contratos Ativos ({selectedYear})</h2>
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -270,7 +293,7 @@ export default function Dashboard() {
                   formatter={(value: number) => formatCurrency(value)}
                 />
                 <Bar dataKey="inadimplencia" name="Inadimplência" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="receita" name="Receita" fill="#F47B20" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="receita" name="Taxa Adm" fill="#F47B20" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="contratosAtivos" name="Contratos Ativos" fill="#1E2732" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
