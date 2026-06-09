@@ -182,6 +182,46 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 20,
   },
+  tableSectionHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f3f4f6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E2732',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  tableSectionHeaderText: {
+    flex: 1,
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#1E2732',
+    letterSpacing: 1,
+  },
+  subtotalRow: {
+    flexDirection: 'row',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#ffffff',
+  },
+  subtotalLabel: {
+    flex: 1,
+    color: '#4b5563',
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'right',
+    paddingRight: 10,
+  },
+  subtotalValue: {
+    width: 100,
+    textAlign: 'right',
+    color: '#1E2732',
+    fontWeight: 'bold',
+    fontSize: 9,
+  },
   tableHeaderRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -340,6 +380,19 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
   const inquilinosNomes = [inquilino?.nome, ...coInquilinos.map((c: any) => c.nome)].filter(Boolean).join(', ');
   const mesRef = formatMesReferencia(cobranca?.mesReferencia);
   
+  const itensCondominio = cobranca?.itensAdicionais?.filter((i: any) => i.fazParteCondominio) || [];
+  const itensAluguel = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && (i.tipo === 'desconto' || i.tipo === 'despesa_proprietario')) || [];
+  const itensOutros = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && i.tipo === 'acrescimo') || [];
+
+  const temCondominio = (cobranca?.valorCondominio > 0) || (cobranca?.condoProporcionalValor > 0) || itensCondominio.length > 0;
+  const temOutros = (cobranca?.valorIptu > 0) || (cobranca?.iptuProporcionalValor > 0) || (cobranca?.taxasExtras > 0) || itensOutros.length > 0;
+
+  const subtotalAluguel = (cobranca?.valorAluguel || 0) + itensAluguel.reduce((acc: number, i: any) => acc + (i.tipo === 'desconto' ? -Number(i.valor) : 0), 0);
+  const subtotalCondo = (cobranca?.valorCondominio || 0) + (cobranca?.condoProporcionalValor || 0) + 
+    itensCondominio.reduce((acc: number, i: any) => acc + (i.tipo === 'acrescimo' ? Number(i.valor) : (i.tipo === 'desconto' ? -Number(i.valor) : 0)), 0);
+  const subtotalOutros = (cobranca?.valorIptu || 0) + (cobranca?.iptuProporcionalValor || 0) + (cobranca?.taxasExtras || 0) + 
+    itensOutros.reduce((acc: number, i: any) => acc + Number(i.valor), 0);
+
   return (
   <Document>
     <CoverPage type="LOCATÁRIO" monthYear={mesRef} />
@@ -370,58 +423,104 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
       <Text style={styles.mesReferencia}>Mês referência: {mesRef}:</Text>
 
       <View style={styles.table}>
-        <View style={styles.tableHeaderRow}>
-          <Text style={styles.tableHeaderLeft}>DESCRIÇÃO</Text>
-          <Text style={styles.tableHeaderRight}>VALOR</Text>
+        <View style={styles.tableSectionHeader}>
+          <Text style={styles.tableSectionHeaderText}>1. ALUGUEL E ABATIMENTOS</Text>
         </View>
         <View style={styles.tableRow}>
-          <Text style={styles.tableColLeft}>ALUGUEL</Text>
+          <Text style={styles.tableColLeft}>Aluguel</Text>
           <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorAluguel)}</Text>
         </View>
-        
-        {cobranca?.valorCondominio > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>Cota condominial</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorCondominio)}</Text>
-          </View>
-        )}
-        
-        {cobranca?.valorIptu > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>IPTU</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorIptu)}</Text>
-          </View>
-        )}
-
-        {cobranca?.condoProporcionalValor > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
-          </View>
-        )}
-
-        {cobranca?.iptuProporcionalValor > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
-          </View>
-        )}
-
-        {cobranca?.taxasExtras > 0 && (
-          <View style={styles.tableRow}>
-            <Text style={styles.tableColLeft}>Taxas Extras</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.taxasExtras)}</Text>
-          </View>
-        )}
-
-        {cobranca?.itensAdicionais?.map((item: any, index: number) => (
-          <View key={index} style={[styles.tableRow, index % 2 === 0 ? styles.tableRowHighlight : {}]}>
-            <Text style={[styles.tableColLeft, (item.tipo === 'desconto' || item.tipo === 'despesa_proprietario') ? styles.textRed : {}]}>{item.descricao}</Text>
-            <Text style={[styles.tableColRight, (item.tipo === 'desconto' || item.tipo === 'despesa_proprietario') ? styles.textRed : {}]}>
-              {(item.tipo === 'desconto' || item.tipo === 'despesa_proprietario') ? '- ' : ''}{formatCurrency(item.valor)}
-            </Text>
+        {itensAluguel.map((item: any, index: number) => (
+          <View key={`alug-${index}`} style={styles.tableRow}>
+            <Text style={[styles.tableColLeft, styles.textRed]}>{item.descricao}</Text>
+            <Text style={[styles.tableColRight, styles.textRed]}>- {formatCurrency(item.valor)}</Text>
           </View>
         ))}
+        {itensAluguel.length > 0 && (
+          <View style={styles.subtotalRow}>
+            <Text style={styles.subtotalLabel}>Subtotal Aluguel Líquido:</Text>
+            <Text style={styles.subtotalValue}>{formatCurrency(subtotalAluguel)}</Text>
+          </View>
+        )}
+
+        {temCondominio && (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>2. CONDOMÍNIO (FRAÇÃO DO LOCATÁRIO)</Text>
+            </View>
+            {cobranca?.valorCondominio > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>Cota condominial</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorCondominio)}</Text>
+              </View>
+            )}
+            {cobranca?.condoProporcionalValor > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
+              </View>
+            )}
+            {itensCondominio.filter((i:any) => i.tipo !== 'despesa_proprietario').map((item: any, index: number) => {
+              const isDesconto = item.tipo === 'desconto';
+              return (
+                <View key={`cond-${index}`} style={styles.tableRow}>
+                  <Text style={[styles.tableColLeft, isDesconto ? styles.textRed : {}]}>{item.descricao}</Text>
+                  <Text style={[styles.tableColRight, isDesconto ? styles.textRed : {}]}>
+                    {isDesconto ? '- ' : ''}{formatCurrency(item.valor)}
+                  </Text>
+                </View>
+              );
+            })}
+            
+            {itensCondominio.filter((i:any) => i.tipo === 'despesa_proprietario').map((item: any, index: number) => (
+               <View key={`cond-prop-${index}`} style={styles.tableRow}>
+                 <Text style={styles.tableColLeft}>{item.descricao} (Resp. Proprietário)</Text>
+                 <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
+               </View>
+            ))}
+            
+            <View style={styles.subtotalRow}>
+              <Text style={styles.subtotalLabel}>Subtotal Condomínio a Pagar:</Text>
+              <Text style={styles.subtotalValue}>{formatCurrency(subtotalCondo)}</Text>
+            </View>
+          </>
+        )}
+
+        {temOutros && (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>{temCondominio ? '3' : '2'}. IPTU E OUTRAS TAXAS</Text>
+            </View>
+            {cobranca?.valorIptu > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>IPTU</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorIptu)}</Text>
+              </View>
+            )}
+            {cobranca?.iptuProporcionalValor > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
+              </View>
+            )}
+            {cobranca?.taxasExtras > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>Taxas Extras</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.taxasExtras)}</Text>
+              </View>
+            )}
+            {itensOutros.map((item: any, index: number) => (
+              <View key={`out-${index}`} style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>{item.descricao}</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
+              </View>
+            ))}
+            <View style={styles.subtotalRow}>
+              <Text style={styles.subtotalLabel}>Subtotal Outros Encargos:</Text>
+              <Text style={styles.subtotalValue}>{formatCurrency(subtotalOutros)}</Text>
+            </View>
+          </>
+        )}
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total a pagar</Text>
@@ -447,12 +546,38 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
 };
 
 export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inquilino, imovel }: any) => {
+  const proprietariosArray = [proprietario];
+  const inquilinosArray = [inquilino];
+
+  const proprietariosNomes = proprietariosArray.map(p => p?.nome).filter(Boolean).join(', ') || 'N/A';
+  const inquilinosNomes = inquilinosArray.map(i => i?.nome).filter(Boolean).join(', ') || 'N/A';
+  const mesRef = formatMesReferencia(repasse?.mesReferencia || cobranca?.mesReferencia);
+
   const valorAluguel = repasse?.valorAluguel !== undefined ? repasse.valorAluguel : cobranca?.valorAluguel;
   const valorCondoBase = repasse?.valorCondominio !== undefined ? repasse.valorCondominio : cobranca?.valorCondominio;
-  const itensCondo = repasse?.itensAdicionais?.filter((item: any) => item.fazParteCondominio) || [];
-  const valorCondoTotal = valorCondoBase + itensCondo.reduce((acc: number, item: any) => acc + item.valor, 0);
+  
+  // Page 1 matches Inquilino logic:
+  const p1_itensCondominio = cobranca?.itensAdicionais?.filter((i: any) => i.fazParteCondominio) || [];
+  const p1_itensAluguel = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && (i.tipo === 'desconto' || i.tipo === 'despesa_proprietario')) || [];
+  const p1_itensOutros = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && i.tipo === 'acrescimo') || [];
+
+  const p1_temCondominio = (cobranca?.valorCondominio > 0) || (cobranca?.condoProporcionalValor > 0) || p1_itensCondominio.length > 0;
+  const p1_temOutros = (cobranca?.valorIptu > 0) || (cobranca?.iptuProporcionalValor > 0) || (cobranca?.taxasExtras > 0) || p1_itensOutros.length > 0;
+
+  // Despesa proprietario doesn't deduct from Inquilino's net total, only from Repasse
+  const p1_subtotalAluguel = (cobranca?.valorAluguel || 0) + 
+    p1_itensAluguel.reduce((acc: number, i: any) => acc + (i.tipo === 'desconto' ? -Number(i.valor) : 0), 0);
+  
+  const p1_subtotalCondo = (cobranca?.valorCondominio || 0) + (cobranca?.condoProporcionalValor || 0) + 
+    p1_itensCondominio.reduce((acc: number, i: any) => acc + (i.tipo === 'acrescimo' ? Number(i.valor) : (i.tipo === 'desconto' ? -Number(i.valor) : 0)), 0);
+  
+  const p1_subtotalOutros = (cobranca?.valorIptu || 0) + (cobranca?.iptuProporcionalValor || 0) + (cobranca?.taxasExtras || 0) + 
+    p1_itensOutros.reduce((acc: number, i: any) => acc + Number(i.valor), 0);
+
+  const valorCondoTotal = repasse?.valorCondominio !== undefined 
+    ? repasse.valorCondominio 
+    : (cobranca?.valorCondominio || 0) + (cobranca?.itensAdicionais?.filter((item: any) => item.fazParteCondominio).reduce((acc: number, item: any) => acc + item.valor, 0) || 0);
   const itensOutros = repasse?.itensAdicionais?.filter((item: any) => !item.fazParteCondominio) || [];
-  const mesRef = formatMesReferencia(repasse?.mesReferencia || cobranca?.mesReferencia);
 
   return (
   <Document>
@@ -490,58 +615,104 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
       <Text style={styles.mesReferencia}>Mês referência: {mesRef} – Valores recebidos do locatário:</Text>
 
       <View style={styles.table}>
-        <View style={styles.tableHeaderRow}>
-          <Text style={styles.tableHeaderLeft}>DESCRIÇÃO</Text>
-          <Text style={styles.tableHeaderRight}>VALOR</Text>
+        <View style={styles.tableSectionHeader}>
+          <Text style={styles.tableSectionHeaderText}>1. ALUGUEL E ABATIMENTOS</Text>
         </View>
         <View style={styles.tableRow}>
           <Text style={styles.tableColLeft}>ALUGUEL</Text>
-          <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorAluguel)}</Text>
+          <Text style={styles.tableColRight}>{formatCurrency(valorAluguel)}</Text>
         </View>
-        
-        {cobranca?.valorCondominio > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>Cota condominial</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorCondominio)}</Text>
-          </View>
-        )}
-        
-        {cobranca?.valorIptu > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>IPTU</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorIptu)}</Text>
-          </View>
-        )}
-
-        {cobranca?.condoProporcionalValor > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
-          </View>
-        )}
-
-        {cobranca?.iptuProporcionalValor > 0 && (
-          <View style={[styles.tableRow, styles.tableRowHighlight]}>
-            <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
-          </View>
-        )}
-
-        {cobranca?.taxasExtras > 0 && (
-          <View style={styles.tableRow}>
-            <Text style={styles.tableColLeft}>Taxas Extras</Text>
-            <Text style={styles.tableColRight}>{formatCurrency(cobranca?.taxasExtras)}</Text>
-          </View>
-        )}
-
-        {cobranca?.itensAdicionais?.map((item: any, index: number) => (
-          <View key={index} style={[styles.tableRow, index % 2 === 0 ? styles.tableRowHighlight : {}]}>
-            <Text style={styles.tableColLeft}>{item.descricao}</Text>
-            <Text style={styles.tableColRight}>
-              {(item.tipo === 'desconto' || item.tipo === 'despesa_proprietario') ? '- ' : ''}{formatCurrency(item.valor)}
-            </Text>
+        {p1_itensAluguel.map((item: any, index: number) => (
+          <View key={`palug-${index}`} style={styles.tableRow}>
+            <Text style={[styles.tableColLeft, styles.textRed]}>{item.descricao}</Text>
+            <Text style={[styles.tableColRight, styles.textRed]}>- {formatCurrency(item.valor)}</Text>
           </View>
         ))}
+        {p1_itensAluguel.length > 0 && (
+          <View style={styles.subtotalRow}>
+            <Text style={styles.subtotalLabel}>Subtotal Aluguel Líquido:</Text>
+            <Text style={styles.subtotalValue}>{formatCurrency(p1_subtotalAluguel)}</Text>
+          </View>
+        )}
+
+        {p1_temCondominio && (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>2. CONDOMÍNIO (FRAÇÃO DO LOCATÁRIO)</Text>
+            </View>
+            {cobranca?.valorCondominio > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>Cota condominial</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorCondominio)}</Text>
+              </View>
+            )}
+            {cobranca?.condoProporcionalValor > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
+              </View>
+            )}
+            {p1_itensCondominio.filter((i:any) => i.tipo !== 'despesa_proprietario').map((item: any, index: number) => {
+              const isDesconto = item.tipo === 'desconto';
+              return (
+                <View key={`pcond-${index}`} style={styles.tableRow}>
+                  <Text style={[styles.tableColLeft, isDesconto ? styles.textRed : {}]}>{item.descricao}</Text>
+                  <Text style={[styles.tableColRight, isDesconto ? styles.textRed : {}]}>
+                    {isDesconto ? '- ' : ''}{formatCurrency(item.valor)}
+                  </Text>
+                </View>
+              );
+            })}
+            
+            {p1_itensCondominio.filter((i:any) => i.tipo === 'despesa_proprietario').map((item: any, index: number) => (
+               <View key={`pcond-prop-${index}`} style={styles.tableRow}>
+                 <Text style={styles.tableColLeft}>{item.descricao} (Resp. Proprietário)</Text>
+                 <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
+               </View>
+            ))}
+            
+            <View style={styles.subtotalRow}>
+              <Text style={styles.subtotalLabel}>Subtotal Condomínio a Pagar:</Text>
+              <Text style={styles.subtotalValue}>{formatCurrency(p1_subtotalCondo)}</Text>
+            </View>
+          </>
+        )}
+
+        {p1_temOutros && (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>{p1_temCondominio ? '3' : '2'}. IPTU E OUTRAS TAXAS</Text>
+            </View>
+            {cobranca?.valorIptu > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>IPTU</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorIptu)}</Text>
+              </View>
+            )}
+            {cobranca?.iptuProporcionalValor > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
+              </View>
+            )}
+            {cobranca?.taxasExtras > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>Taxas Extras</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.taxasExtras)}</Text>
+              </View>
+            )}
+            {p1_itensOutros.map((item: any, index: number) => (
+              <View key={`pout-${index}`} style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>{item.descricao}</Text>
+                <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
+              </View>
+            ))}
+            <View style={styles.subtotalRow}>
+              <Text style={styles.subtotalLabel}>Subtotal Outros Encargos:</Text>
+              <Text style={styles.subtotalValue}>{formatCurrency(p1_subtotalOutros)}</Text>
+            </View>
+          </>
+        )}
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total recebido do locatário</Text>

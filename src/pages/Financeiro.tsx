@@ -317,7 +317,7 @@ export default function Financeiro() {
       editingItens.forEach(item => {
         if (item.tipo === 'acrescimo') valorTotal += item.valor;
         else if (item.tipo === 'desconto') valorTotal -= item.valor;
-        // Itens do tipo 'despesa_proprietario' são ignorados na soma do inquilino
+        // Itens do tipo 'despesa_proprietario' não subtraem do valor cobrado do inquilino
       });
 
       valorTotal = Number(valorTotal.toFixed(2));
@@ -404,26 +404,32 @@ export default function Financeiro() {
           const taxaAdmValor = Number(((latestCobranca.valorAluguel * contrato.taxaAdministracao) / 100).toFixed(2));
           
           // Copiar itens da cobrança para o repasse
-          const itensAdicionaisRepasse = (latestCobranca.itensAdicionais || []).map(item => ({
-            ...item,
-            // Acréscimos na cobrança (como utilitários) costumam ser neutros para o proprietário
-            // Despesas do proprietário viram descontos no repasse
-            tipo: item.tipo === 'despesa_proprietario' ? 'desconto' : 'nenhum'
-          }));
+          const itensAdicionaisRepasse = (latestCobranca.itensAdicionais || []).map(item => {
+            if (item.fazParteCondominio) {
+              return { ...item, tipo: 'nenhum' };
+            }
+            if (item.tipo === 'despesa_proprietario') {
+              return { ...item, tipo: 'desconto' };
+            }
+            return { ...item, tipo: 'nenhum' };
+          });
 
-          // Cálculo do valor líquido inicial baseado na lógica do usuário:
-          // Valor Líquido = Valor Recebido (Total do Inquilino) - Taxa Adm - Valor Total do Condomínio (pago pela ADM)
-          // E subtraímos as despesas do proprietário que foram ignoradas no valorRecebido
+          // O valorRecebido (do inquilino) não possui descontos das despesas_proprietario
           const valorRecebido = Number(latestCobranca.valorTotal.toFixed(2));
-          const valorCondominioTotal = Number((latestCobranca.valorCondominio || 0).toFixed(2));
+          // O boleto total pago pela ADM inclui a cota condominial + todos os itens que fazem parte do condomínio
+          const valorCondominioTotalPagamento = Number((latestCobranca.valorCondominio || 0).toFixed(2)) + 
+            (latestCobranca.itensAdicionais || []).filter(i => i.fazParteCondominio).reduce((sum, item) => sum + Number(item.valor), 0);
+          
           const valorIptuTotal = Number((latestCobranca.valorIptu || 0).toFixed(2));
           
-          let valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotal - valorIptuTotal;
+          // IPTU não é deduzido por padrão, a não ser que a ADM pague o boleto (pode ser ajustado na edição do repasse).
+          let valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotalPagamento;
 
-          // Subtrair despesas do proprietário que não entraram no valorRecebido
+          // Subtrair despesas do proprietário que não entraram no boleto do condomínio
+          // Exemplo: Uma despesa que a ADM pagou avulsa (encanador) informada na cobrança.
           (latestCobranca.itensAdicionais || []).forEach(item => {
-            if (item.tipo === 'despesa_proprietario') {
-              valorLiquido -= item.valor;
+            if (item.tipo === 'despesa_proprietario' && !item.fazParteCondominio) {
+              valorLiquido -= Number(item.valor);
             }
           });
 
@@ -437,10 +443,10 @@ export default function Financeiro() {
             valorAluguel: Number(latestCobranca.valorAluguel.toFixed(2)),
             valorRecebido: valorRecebido,
             taxaAdministracao: taxaAdmValor,
-            valorCondominio: valorCondominioTotal,
-            tipoCondominio: 'desconto', // Desconto porque a ADM paga o boleto total
+            valorCondominio: valorCondominioTotalPagamento,
+            tipoCondominio: 'desconto', // Desconto porque a ADM paga o boleto total do condomínio
             valorIptu: valorIptuTotal,
-            tipoIptu: 'desconto',
+            tipoIptu: 'nenhum', // Pode ser marcado como 'desconto' se a ADM for pagar o IPTU
             condoProporcionalDesc: latestCobranca.condoProporcionalDesc || '',
             condoProporcionalValor: latestCobranca.condoProporcionalValor || 0,
             iptuProporcionalDesc: latestCobranca.iptuProporcionalDesc || '',
@@ -975,6 +981,20 @@ export default function Financeiro() {
                         <option value="desconto">Desconto</option>
                         <option value="despesa_proprietario">Desp. Proprietário</option>
                       </select>
+                      <div className="flex items-center gap-1 h-9 px-2 border border-gray-300 rounded-lg bg-gray-50 flex-shrink-0">
+                        <input 
+                          type="checkbox" 
+                          id={`cob-condo-${item.id}`}
+                          checked={item.fazParteCondominio || false}
+                          onChange={(e) => {
+                            const newItens = [...editingItens];
+                            newItens[index].fazParteCondominio = e.target.checked;
+                            setEditingItens(newItens);
+                          }}
+                          className="rounded text-[#F47B20] focus:ring-[#F47B20]"
+                        />
+                        <label htmlFor={`cob-condo-${item.id}`} className="text-[10px] leading-tight text-gray-600 font-medium">Boleto Cond.</label>
+                      </div>
                       <button 
                         type="button" 
                         onClick={() => setEditingItens(editingItens.filter((_, i) => i !== index))}
