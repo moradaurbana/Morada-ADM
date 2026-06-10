@@ -60,8 +60,20 @@ export interface Repasse {
   dataRepasse?: string;
 }
 
+export interface DespesaAvulsa {
+  id: string;
+  contratoId: string;
+  proprietarioId: string;
+  descricao: string;
+  valor: number;
+  dataRegistro: string;
+  status: 'Pendente' | 'Descontado';
+  repasseId?: string;
+  mesReferenciaDesconto?: string;
+}
+
 export default function Financeiro() {
-  const [activeTab, setActiveTab] = useState<'receber' | 'pagar'>('receber');
+  const [activeTab, setActiveTab] = useState<'receber' | 'pagar' | 'despesas'>('receber');
   const [mesGeracao, setMesGeracao] = useState(format(new Date(), 'MM'));
   const [anoGeracao, setAnoGeracao] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'MM'));
@@ -810,7 +822,7 @@ export default function Financeiro() {
                   )}
                 </tbody>
               </table>
-            ) : (
+            ) : activeTab === 'pagar' ? (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-100">
@@ -875,7 +887,7 @@ export default function Financeiro() {
                   )}
                 </tbody>
               </table>
-            )}
+            ) : null}
           </div>
         </div>
       )}
@@ -1136,13 +1148,13 @@ export default function Financeiro() {
                           newItens[index].tipo = e.target.value as any;
                           setEditingItensRepasse(newItens);
                         }}
-                        className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                        className="w-40 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
                       >
                         <option value="nenhum">Nenhum</option>
                         <option value="acrescimo">Acréscimo</option>
-                        <option value="desconto">Desconto</option>
+                        <option value="desconto">Desconto / Manutenção</option>
                       </select>
-                      <div className="flex items-center gap-1 h-10 px-2 border border-gray-300 rounded-lg bg-gray-50">
+                      <div className="flex items-center gap-1 h-10 px-2 border border-gray-300 rounded-lg bg-gray-50 flex-shrink-0">
                         <input 
                           type="checkbox" 
                           id={`condo-${item.id}`}
