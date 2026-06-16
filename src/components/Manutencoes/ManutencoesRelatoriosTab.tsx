@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 30, left: 40, right: 40, textAlign: 'center', color: '#94a3b8', fontSize: 8, borderTop: '1px solid #f1f5f9', paddingTop: 15 }
 });
 
-const CapaPDF = ({ titulo, ano }: any) => (
+const CapaPDF = ({ titulo, capaTitulo, ano }: any) => (
   <Page size="A4" style={styles.coverPage}>
     <Image src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop" style={styles.coverImage} />
     <View style={styles.coverOverlay} />
@@ -51,8 +51,8 @@ const CapaPDF = ({ titulo, ano }: any) => (
 
       <View style={{ marginTop: 120 }}>
         <Text style={styles.coverDocRef}>DOCUMENTO DE REFERÊNCIA</Text>
-        <Text style={styles.coverMainText}>{titulo}</Text>
-        <Text style={[styles.coverMainText, { color: '#F47B20' }]}>MANUTENÇÕES</Text>
+        <Text style={styles.coverMainText}>{capaTitulo || titulo}</Text>
+        {!capaTitulo && <Text style={[styles.coverMainText, { color: '#F47B20' }]}>MANUTENÇÕES</Text>}
       </View>
     </View>
     <View style={styles.coverFooter}>
@@ -61,7 +61,7 @@ const CapaPDF = ({ titulo, ano }: any) => (
   </Page>
 );
 
-export const RelatorioManutencaoGeralPDF = ({ chamados, ano, titulo }: any) => {
+export const RelatorioManutencaoGeralPDF = ({ chamados, ano, titulo, capaTitulo, imovel, proprietario, inquilino }: any) => {
   const chamadosFiltrados = chamados.filter((c: any) => 
     c.dataAbertura && c.dataAbertura.includes(ano.toString())
   );
@@ -78,10 +78,10 @@ export const RelatorioManutencaoGeralPDF = ({ chamados, ano, titulo }: any) => {
 
   return (
     <Document>
-      <CapaPDF titulo={titulo} ano={ano} />
+      <CapaPDF titulo={titulo} capaTitulo={capaTitulo || "RELATÓRIO DE MANUTENÇÕES"} ano={ano} />
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1, paddingRight: 20 }}>
             <Text style={styles.title}>{titulo}</Text>
             <Text style={styles.subtitle}>Ano: {ano}</Text>
           </View>
@@ -90,8 +90,42 @@ export const RelatorioManutencaoGeralPDF = ({ chamados, ano, titulo }: any) => {
           </View>
         </View>
 
+        {(imovel || proprietario) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>1. DADOS CADASTRAIS</Text>
+            {imovel && (
+              <View style={[styles.row, { marginBottom: 10, borderBottom: '1px solid #f1f5f9', paddingBottom: 5 }]}>
+                <View style={{ width: '100%' }}>
+                  <Text style={[styles.bold, { fontSize: 10, color: '#F47B20', marginBottom: 2 }]}>ENDEREÇO DO IMÓVEL</Text>
+                  <Text style={styles.text}>{imovel.endereco}, {imovel.bairro} - {imovel.cidade}/{imovel.estado}</Text>
+                  {imovel.cep && <Text style={styles.text}>CEP: {imovel.cep}</Text>}
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.row}>
+              {proprietario && (
+                <View style={{ width: inquilino ? '50%' : '100%', paddingRight: 10 }}>
+                  <Text style={[styles.bold, { fontSize: 9, color: '#64748b', marginBottom: 2 }]}>PROPRIETÁRIO</Text>
+                  <Text style={styles.text}>{proprietario.nome}</Text>
+                  <Text style={styles.text}>Doc: {proprietario.documento}</Text>
+                  {proprietario.email && <Text style={styles.text}>E-mail: {proprietario.email}</Text>}
+                </View>
+              )}
+              {inquilino && (
+                <View style={{ width: proprietario ? '50%' : '100%' }}>
+                  <Text style={[styles.bold, { fontSize: 9, color: '#64748b', marginBottom: 2 }]}>INQUILINO ATUAL</Text>
+                  <Text style={styles.text}>{inquilino.nome}</Text>
+                  <Text style={styles.text}>Doc: {inquilino.documento}</Text>
+                  {inquilino.email && <Text style={styles.text}>E-mail: {inquilino.email}</Text>}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>1. RESUMO OPERACIONAL</Text>
+          <Text style={styles.sectionTitle}>{(imovel || proprietario) ? '2' : '1'}. RESUMO OPERACIONAL</Text>
           <View style={styles.row}>
             <Text style={[styles.text, { width: '70%' }]}>Total de Chamados no Período</Text>
             <Text style={[styles.text, { width: '30%', textAlign: 'right' }]}>{chamadosFiltrados.length}</Text>
@@ -111,7 +145,7 @@ export const RelatorioManutencaoGeralPDF = ({ chamados, ano, titulo }: any) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. DETALHAMENTO DOS CHAMADOS</Text>
+          <Text style={styles.sectionTitle}>{(imovel || proprietario) ? '3' : '2'}. DETALHAMENTO DOS CHAMADOS</Text>
           <View style={[styles.row, { backgroundColor: '#f1f5f9' }]}>
             <Text style={[styles.col1, styles.bold, { width: '20%' }]}>Data</Text>
             <Text style={[styles.col2, styles.bold, { width: '40%' }]}>Categoria</Text>
@@ -200,6 +234,40 @@ export const RelatorioPrestadoresPDF = ({ prestadores, chamados, ano, titulo }: 
         </View>
       </Page>
     </Document>
+  );
+};
+
+const LazyPDFDownloadButton = ({ getDocument, fileName, className, children }: { getDocument: () => any, fileName: string, className?: string, children?: React.ReactNode }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async () => {
+    try {
+      setLoading(true);
+      const { pdf } = await import('@react-pdf/renderer');
+      const doc = getDocument();
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      console.error('Erro ao gerar PDF:', e);
+      alert('Houve um erro ao gerar o PDF. Verifique o console para mais detalhes.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={loading}
+      className={className || "mt-auto flex items-center justify-center gap-2 w-full py-2.5 bg-[#F47B20] text-white rounded-xl hover:bg-[#d96a1b] transition-all text-sm font-bold shadow-sm"}
+    >
+      {loading ? 'Gerando...' : (children || <><Download size={16} /> Baixar Relatório</>)}
+    </button>
   );
 };
 
@@ -333,14 +401,15 @@ export default function ManutencoesRelatoriosTab() {
                           Total de Chamados Cadastrados: {chamadosDoImovel.length}
                         </div>
                       </div>
-                      <PDFDownloadLink
-                        document={<RelatorioManutencaoGeralPDF chamados={chamadosDoImovel} ano={anoBase} titulo={`MANUTENÇÕES: ${imovel.endereco.toUpperCase()}`} />}
+                      <LazyPDFDownloadButton
+                        getDocument={() => {
+                          const activeContract = contratos.find(c => c.imovelId === imovel.id && c.status === 'Ativo');
+                          const inquilino = activeContract ? inquilinos.find(i => i.id === activeContract.inquilinoId) : null;
+                          const proprietario = activeContract ? proprietarios.find(p => p.id === activeContract.proprietarioId) : null;
+                          return <RelatorioManutencaoGeralPDF chamados={chamadosDoImovel} ano={anoBase} titulo="RESUMO DE MANUTENÇÕES POR IMÓVEL" imovel={imovel} proprietario={proprietario} inquilino={inquilino} />
+                        }}
                         fileName={`Relatorio_Manutencoes_Imovel_${anoBase}_${imovel.codigo || imovel.id.substring(0,6)}.pdf`}
-                        className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 bg-[#F47B20] text-white rounded-xl hover:bg-[#d96a1b] transition-all text-sm font-bold shadow-sm"
-                      >
-                        {/* @ts-ignore */}
-                        {({ loading }) => (loading ? 'Gerando...' : <><Download size={16} /> Baixar Relatório</>)}
-                      </PDFDownloadLink>
+                      />
                     </div>
                   );
                 })
@@ -362,14 +431,10 @@ export default function ManutencoesRelatoriosTab() {
                         </div>
                       </div>
                       
-                      <PDFDownloadLink
-                        document={<RelatorioManutencaoGeralPDF chamados={chamadosDoProprietario} ano={anoBase} titulo={`MANUTENÇÕES: ${pessoa.nome.toUpperCase()}`} />}
-                        fileName={`Relatorio_Manutencoes_${anoBase}_${pessoa.nome.replace(/\\s+/g, '_')}.pdf`}
-                        className="mt-auto flex items-center justify-center gap-2 w-full py-2.5 bg-[#F47B20] text-white rounded-xl hover:bg-[#d96a1b] transition-all text-sm font-bold shadow-sm"
-                      >
-                        {/* @ts-ignore */}
-                        {({ loading }) => (loading ? 'Gerando...' : <><Download size={16} /> Baixar Relatório</>)}
-                      </PDFDownloadLink>
+                      <LazyPDFDownloadButton
+                        getDocument={() => <RelatorioManutencaoGeralPDF chamados={chamadosDoProprietario} ano={anoBase} titulo="RESUMO DE MANUTENÇÕES POR PROPRIETÁRIO" proprietario={pessoa} />}
+                        fileName={`Relatorio_Manutencoes_${anoBase}_${pessoa.nome.replace(/\s+/g, '_')}.pdf`}
+                      />
                     </div>
                   );
                 })
@@ -383,14 +448,13 @@ export default function ManutencoesRelatoriosTab() {
             <h3 className="text-xl font-semibold text-[#1E2732] mb-2">Relatório Geral de Manutenções e Custos</h3>
             <p className="text-gray-500 mb-8 max-w-md mx-auto">Gere um documento consolidado com todos os chamados e custos aprovados para o ano calendário selecionado.</p>
             <div className="flex justify-center">
-               <PDFDownloadLink
-                  document={<RelatorioManutencaoGeralPDF chamados={chamados} ano={anoBase} titulo="RESUMO GERAL DE MANUTENÇÕES E CUSTOS" />}
+               <LazyPDFDownloadButton
+                  getDocument={() => <RelatorioManutencaoGeralPDF chamados={chamados} ano={anoBase} titulo="RESUMO GERAL DE MANUTENÇÕES E CUSTOS" />}
                   fileName={`Resumo_Geral_Manutencoes_${anoBase}.pdf`}
                   className="bg-[#1E2732] text-white px-8 py-4 rounded-xl hover:bg-[#F47B20] transition-colors font-bold shadow-lg flex items-center gap-3 active:scale-95"
                >
-                  {/* @ts-ignore */}
-                  {({ loading }) => (loading ? 'Processando PDF...' : <><Download size={20} /> Baixar Relatório Geral - {anoBase}</>)}
-               </PDFDownloadLink>
+                  <><Download size={20} /> Baixar Relatório Geral - {anoBase}</>
+               </LazyPDFDownloadButton>
             </div>
           </div>
         )}
@@ -400,14 +464,13 @@ export default function ManutencoesRelatoriosTab() {
             <h3 className="text-xl font-semibold text-[#1E2732] mb-2">Avaliação e Serviços de Prestadores</h3>
             <p className="text-gray-500 mb-8 max-w-md mx-auto">Gere um relatório completo contendo a lista de prestadores e os volumes de ordens de serviço pagas no ano.</p>
             <div className="flex justify-center">
-               <PDFDownloadLink
-                  document={<RelatorioPrestadoresPDF prestadores={prestadores} chamados={chamados} ano={anoBase} titulo="AVALIAÇÃO E DESEMPENHO DE PRESTADORES" />}
+               <LazyPDFDownloadButton
+                  getDocument={() => <RelatorioPrestadoresPDF prestadores={prestadores} chamados={chamados} ano={anoBase} titulo="AVALIAÇÃO E DESEMPENHO DE PRESTADORES" />}
                   fileName={`Relatorio_Prestadores_${anoBase}.pdf`}
                   className="bg-[#1E2732] text-white px-8 py-4 rounded-xl hover:bg-[#F47B20] transition-colors font-bold shadow-lg flex items-center gap-3 active:scale-95"
                >
-                  {/* @ts-ignore */}
-                  {({ loading }) => (loading ? 'Processando PDF...' : <><Download size={20} /> Baixar Relatório de Prestadores - {anoBase}</>)}
-               </PDFDownloadLink>
+                  <><Download size={20} /> Baixar Relatório de Prestadores - {anoBase}</>
+               </LazyPDFDownloadButton>
             </div>
           </div>
         )}
