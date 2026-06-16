@@ -71,6 +71,36 @@ service cloud.firestore {
       allow write: if isOperadorOrAdmin();
     }
 
+    // Despesas Avulsas
+    match /despesas_avulsas/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+
+    // Prestadores
+    match /prestadores/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+
+    // Chamados de Manutenção
+    match /chamados_manutencao/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+
+    // Ordens de Serviço
+    match /ordens_servico/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+
+    // Orçamentos de Manutenção
+    match /orcamentos_manutencao/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+    
     // Notificações Enviadas (Log do sistema)
     match /notificacoes_enviadas/{docId} {
       allow read, write: if isAuthenticated();

@@ -412,7 +412,11 @@ export default function Relatorios() {
             <label className="text-sm font-medium text-gray-700">Tipo de Relatório</label>
             <select 
               value={tipo} 
-              onChange={(e) => setTipo(e.target.value as any)}
+              onChange={(e) => {
+                setTipo(e.target.value as any);
+                setBusca('');
+                setActivePessoaId(null);
+              }}
               className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#F47B20] outline-none"
             >
               <option value="proprietario">Para Proprietário (Locador)</option>

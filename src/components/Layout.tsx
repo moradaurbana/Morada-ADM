@@ -13,7 +13,8 @@ import {
   X,
   Building2,
   Settings,
-  Bell
+  Bell,
+  Wrench
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -33,6 +34,7 @@ export default function Layout() {
     { to: '/inquilinos', icon: Users, label: 'Inquilinos' },
     { to: '/contratos', icon: FileText, label: 'Contratos' },
     { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
+    { to: '/gestao-manutencoes', icon: Wrench, label: 'Serviços / Reparos' },
     { to: '/alertas', icon: Bell, label: 'Gestão de Alertas' },
     { to: '/relatorios', icon: PieChart, label: 'Relatórios (IR)' },
     { to: '/manutencao', icon: Settings, label: 'Manutenção' },

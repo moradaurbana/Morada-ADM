@@ -13,6 +13,7 @@ import Contratos from './pages/Contratos';
 import Financeiro from './pages/Financeiro';
 import Relatorios from './pages/Relatorios';
 import Manutencao from './pages/Manutencao';
+import GestaoManutencoes from './pages/GestaoManutencoes';
 import Alertas from './pages/Alertas';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="financeiro" element={<Financeiro />} />
         <Route path="relatorios" element={<Relatorios />} />
         <Route path="manutencao" element={<Manutencao />} />
+        <Route path="gestao-manutencoes" element={<GestaoManutencoes />} />
         <Route path="alertas" element={<Alertas />} />
       </Route>
     </Routes>
