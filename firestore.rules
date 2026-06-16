@@ -32,6 +32,13 @@ service cloud.firestore {
     // Usuarios
     match /usuarios/{userId} {
       allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId && (
+        request.auth.token.email == "jeferson.bernardes2024@gmail.com" || 
+        request.resource.data.role == "operador"
+      );
+      allow update: if isAuthenticated() && request.auth.uid == userId && (
+        request.resource.data.role == resource.data.role
+      );
       allow create, update, delete: if isAdmin();
     }
 

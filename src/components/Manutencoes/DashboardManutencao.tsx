@@ -164,8 +164,8 @@ export default function DashboardManutencao({ chamados, prestadores }: Props) {
         {/* Gráfico 1: Evolução Mensal */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
           <h3 className="font-bold text-[#1E2732] mb-6 text-sm uppercase tracking-wider">Volume de Manutenções x Custo (Ano {anoFiltro})</h3>
-          <div className="flex-1 w-full" style={{ minHeight: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="flex-1 w-full min-h-[300px]">
+            <ResponsiveContainer width="100%" height={300} minWidth={0}>
               <LineChart data={evolucaoData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="nome" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
@@ -189,9 +189,9 @@ export default function DashboardManutencao({ chamados, prestadores }: Props) {
         {/* Gráfico 2: Composição por Categoria */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
           <h3 className="font-bold text-[#1E2732] mb-6 text-sm uppercase tracking-wider">Distribuição por Categoria</h3>
-          <div className="flex-1 w-full flex items-center justify-center" style={{ minHeight: 300 }}>
+          <div className="flex-1 w-full flex items-center justify-center min-h-[300px]">
             {categoriasData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minWidth={0}>
                 <PieChart>
                   <Pie
                     data={categoriasData}
@@ -223,9 +223,9 @@ export default function DashboardManutencao({ chamados, prestadores }: Props) {
         {/* Gráfico 3: Chamados por Status */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-bold text-[#1E2732] mb-6 text-sm uppercase tracking-wider">Volume por Status</h3>
-          <div className="w-full" style={{ height: 300 }}>
+          <div className="w-full min-h-[300px]">
             {statusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300} minWidth={0}>
                 <BarChart data={statusData} layout="vertical" margin={{ top: 5, right: 30, left: 60, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
