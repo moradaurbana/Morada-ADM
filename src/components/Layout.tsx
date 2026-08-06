@@ -14,7 +14,8 @@ import {
   Building2,
   Settings,
   Bell,
-  Wrench
+  Wrench,
+  CalendarCheck
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -34,6 +35,7 @@ export default function Layout() {
     { to: '/inquilinos', icon: Users, label: 'Inquilinos' },
     { to: '/contratos', icon: FileText, label: 'Contratos' },
     { to: '/financeiro', icon: DollarSign, label: 'Financeiro' },
+    { to: '/rotina-financeira', icon: CalendarCheck, label: 'Rotina Financeira' },
     { to: '/gestao-manutencoes', icon: Wrench, label: 'Serviços / Reparos' },
     { to: '/alertas', icon: Bell, label: 'Gestão de Alertas' },
     { to: '/relatorios', icon: PieChart, label: 'Relatórios (IR)' },
@@ -121,7 +123,7 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8 flex flex-col">
           <Outlet />
         </div>
       </main>

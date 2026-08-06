@@ -96,6 +96,12 @@ service cloud.firestore {
       allow write: if isOperadorOrAdmin();
     }
 
+    // Fechamentos Mensais (Rotina Financeira)
+    match /fechamentos_mensais/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isOperadorOrAdmin();
+    }
+
     // Orçamentos de Manutenção
     match /orcamentos_manutencao/{docId} {
       allow read: if isAuthenticated();

@@ -15,6 +15,7 @@ import Relatorios from './pages/Relatorios';
 import Manutencao from './pages/Manutencao';
 import GestaoManutencoes from './pages/GestaoManutencoes';
 import Alertas from './pages/Alertas';
+import RotinaFinanceira from './pages/RotinaFinanceira';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="inquilinos" element={<Inquilinos />} />
         <Route path="contratos" element={<Contratos />} />
         <Route path="financeiro" element={<Financeiro />} />
+        <Route path="rotina-financeira" element={<RotinaFinanceira />} />
         <Route path="relatorios" element={<Relatorios />} />
         <Route path="manutencao" element={<Manutencao />} />
         <Route path="gestao-manutencoes" element={<GestaoManutencoes />} />
