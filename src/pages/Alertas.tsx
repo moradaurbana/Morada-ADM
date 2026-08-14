@@ -49,9 +49,9 @@ const CartaReajustePDF = ({ alerta, valorPercentual, novoValor }: { alerta: Item
   const dataRef = new Date();
   
   // Lógica de Vigência: 
-  // Se o aniversário é Abril (Uso em Maio), o pagamento é em Junho (mês vencido)
-  const dataUso = addMonths(alerta.dataAlerta, 1);
-  const dataPagamento = addMonths(alerta.dataAlerta, 2);
+  // O mês de aniversário é o mês de uso que sofre o reajuste. O pagamento ocorre no mês seguinte (mês vencido).
+  const dataUso = alerta.dataAlerta;
+  const dataPagamento = addMonths(alerta.dataAlerta, 1);
   
   const mesUsoDesc = format(dataUso, "MMMM/yyyy", { locale: ptBR });
   const mesPagamentoDesc = format(dataPagamento, "MMMM/yyyy", { locale: ptBR });

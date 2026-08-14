@@ -161,17 +161,33 @@ export default function RotinaFinanceira() {
   
     if (['passo1_prestacao_inquilino', 'passo2_boleto_inquilino'].includes(passoId)) {
        return (
-          <button className="text-[10px] text-blue-500 font-medium flex items-center justify-center gap-1 hover:underline mt-1 bg-blue-50 px-2 py-1 rounded-md w-full" title="Anexar ou Gerar (em breve)">
+          <label className="text-[10px] text-blue-500 font-medium flex items-center justify-center gap-1 hover:underline mt-1 bg-blue-50 px-2 py-1 rounded-md w-full cursor-pointer" title="Anexar arquivo">
              <Upload size={12} /> Gerar/Anexar
-          </button>
+             <input type="file" className="hidden" onChange={(e) => {
+               if (e.target.files && e.target.files.length > 0) {
+                 alert(`Arquivo "${e.target.files[0].name}" anexado com sucesso! (Simulação)`);
+                 if (!fechamento[passoId]) {
+                   togglePasso(contrato.id, passoId, false);
+                 }
+               }
+             }} />
+          </label>
        )
     }
   
     if (['passo4_identificar_pagamento', 'passo5_pagar_condominio_iptu'].includes(passoId)) {
       return (
-          <button className="text-[10px] text-orange-500 font-medium flex items-center justify-center gap-1 hover:underline mt-1 bg-orange-50 px-2 py-1 rounded-md w-full" title="Anexar Comprovante (em breve)">
+          <label className="text-[10px] text-orange-500 font-medium flex items-center justify-center gap-1 hover:underline mt-1 bg-orange-50 px-2 py-1 rounded-md w-full cursor-pointer" title="Anexar Comprovante">
              <Paperclip size={12} /> Comprovante
-          </button>
+             <input type="file" className="hidden" onChange={(e) => {
+               if (e.target.files && e.target.files.length > 0) {
+                 alert(`Comprovante "${e.target.files[0].name}" anexado com sucesso! (Simulação)`);
+                 if (!fechamento[passoId]) {
+                   togglePasso(contrato.id, passoId, false);
+                 }
+               }
+             }} />
+          </label>
       )
     }
   
