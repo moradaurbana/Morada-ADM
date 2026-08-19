@@ -63,8 +63,10 @@ const CartaReajustePDF = ({ alerta, valorPercentual, novoValor }: { alerta: Item
     return `${format(inicio, "MMMM/yyyy", { locale: ptBR })} a ${format(fim, "MMMM/yyyy", { locale: ptBR })}`;
   })();
 
+  const valorBaseAntigo = alerta.valorAnterior || (alerta.ultimoAjusteData ? novoValor / (1 + (valorPercentual / 100)) : (alerta.valorAtual || 0));
+
   const valorExtensoNovo = extenso(novoValor.toFixed(2).replace('.', ','), { mode: 'currency', currency: { type: 'BRL' } });
-  const valorExtensoCorr = extenso((novoValor - (alerta.valorAtual || 0)).toFixed(2).replace('.', ','), { mode: 'currency', currency: { type: 'BRL' } });
+  const valorExtensoCorr = extenso(Math.max(0, novoValor - valorBaseAntigo).toFixed(2).replace('.', ','), { mode: 'currency', currency: { type: 'BRL' } });
 
   const formatAddress = (obj: any) => {
     if (!obj) return 'N/A';
@@ -112,7 +114,7 @@ const CartaReajustePDF = ({ alerta, valorPercentual, novoValor }: { alerta: Item
           <Text style={pdfStyles.sectionTitle}>MEMORIAL DE CÁLCULO</Text>
           <View style={pdfStyles.row}>
             <Text style={pdfStyles.label}>Valor Anterior:</Text>
-            <Text style={pdfStyles.value}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(alerta.valorAtual || 0)}</Text>
+            <Text style={pdfStyles.value}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valorBaseAntigo)}</Text>
           </View>
           <View style={pdfStyles.row}>
             <Text style={pdfStyles.label}>Período de Apuração:</Text>
@@ -124,7 +126,7 @@ const CartaReajustePDF = ({ alerta, valorPercentual, novoValor }: { alerta: Item
           </View>
           <View style={pdfStyles.row}>
             <Text style={pdfStyles.label}>Valor da Correção:</Text>
-            <Text style={pdfStyles.value}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(novoValor - (alerta.valorAtual || 0))} ({valorExtensoCorr})</Text>
+            <Text style={pdfStyles.value}>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(novoValor - valorBaseAntigo)} ({valorExtensoCorr})</Text>
           </View>
         </View>
 
@@ -213,6 +215,7 @@ interface ItemAlerta {
   inquilino?: Pessoa;
   ultimoAjusteData?: string;
   ultimoAjusteIndice?: number;
+  valorAnterior?: number;
 }
 
 export default function Alertas() {
@@ -315,7 +318,7 @@ export default function Alertas() {
       let countVencimento = 0;
 
       contratosSnap.forEach(docSnap => {
-        const contrato = { id: docSnap.id, ...docSnap.data() } as Contrato & { lastAdjustmentDate?: string, lastAdjustmentIndex?: number };
+        const contrato = { id: docSnap.id, ...docSnap.data() } as Contrato & { lastAdjustmentDate?: string, lastAdjustmentIndex?: number, valorAnteriorReajuste?: number };
         const imovel = imoveis.find(i => i.id === contrato.imovelId);
         const proprietario = proprietarios.find(p => p.id === contrato.proprietarioId);
         const inquilino = inquilinos.find(i => i.id === contrato.inquilinoId);
@@ -377,7 +380,8 @@ export default function Alertas() {
           inquilino,
           // Adicionar info de conclusão
           ultimoAjusteData: contrato.lastAdjustmentDate,
-          ultimoAjusteIndice: contrato.lastAdjustmentIndex
+          ultimoAjusteIndice: contrato.lastAdjustmentIndex,
+          valorAnterior: contrato.valorAnteriorReajuste
         };
 
         if (jaAjustado) {
