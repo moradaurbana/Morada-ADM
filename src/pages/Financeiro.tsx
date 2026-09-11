@@ -7,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { pdf } from '@react-pdf/renderer';
 import { InquilinoPDF, ProprietarioPDF } from '../components/PrestacaoContasPDF';
 import { ConfirmDialog, AlertDialog } from '../components/ConfirmDialog';
+import FechamentoComplementarModal from '../components/FechamentoComplementarModal';
 import { useForm } from 'react-hook-form';
 
 export interface ItemAdicional {
@@ -35,6 +36,8 @@ export interface Cobranca {
   valorTotal: number;
   status: 'Pendente' | 'Pago' | 'Atrasado';
   dataPagamento?: string;
+  isComplementar?: boolean;
+  complementarRepasseData?: any;
 }
 
 export interface Repasse {
@@ -58,6 +61,7 @@ export interface Repasse {
   valorLiquido: number;
   status: 'Pendente' | 'Pago';
   dataRepasse?: string;
+  isComplementar?: boolean;
 }
 
 export interface DespesaAvulsa {
@@ -84,6 +88,7 @@ export default function Financeiro() {
   const [gerando, setGerando] = useState(false);
   const [baixandoPdf, setBaixandoPdf] = useState<string | null>(null);
   const [isIndividualModalOpen, setIsIndividualModalOpen] = useState(false);
+  const [isComplementarModalOpen, setIsComplementarModalOpen] = useState(false);
   const [searchTermIndividual, setSearchTermIndividual] = useState('');
 
   const [inquilinos, setInquilinos] = useState<Record<string, any>>({});
@@ -413,64 +418,77 @@ export default function Financeiro() {
           });
 
           const repasseRef = doc(collection(db, 'repasses'));
-          const taxaAdmValor = Number(((latestCobranca.valorAluguel * contrato.taxaAdministracao) / 100).toFixed(2));
           
-          // Copiar itens da cobrança para o repasse
-          const itensAdicionaisRepasse = (latestCobranca.itensAdicionais || []).map(item => {
-            if (item.fazParteCondominio) {
+          if (latestCobranca.isComplementar && latestCobranca.complementarRepasseData) {
+            const repasseData = {
+              ...latestCobranca.complementarRepasseData,
+              cobrancaId: latestCobranca.id,
+              contratoId: latestCobranca.contratoId,
+              status: 'Pendente',
+              isComplementar: true,
+              createdAt: new Date().toISOString()
+            };
+            batch.set(repasseRef, repasseData);
+          } else {
+            const taxaAdmValor = Number(((latestCobranca.valorAluguel * contrato.taxaAdministracao) / 100).toFixed(2));
+            
+            // Copiar itens da cobrança para o repasse
+            const itensAdicionaisRepasse = (latestCobranca.itensAdicionais || []).map(item => {
+              if (item.fazParteCondominio) {
+                return { ...item, tipo: 'nenhum' };
+              }
+              if (item.tipo === 'despesa_proprietario') {
+                return { ...item, tipo: 'desconto' };
+              }
               return { ...item, tipo: 'nenhum' };
-            }
-            if (item.tipo === 'despesa_proprietario') {
-              return { ...item, tipo: 'desconto' };
-            }
-            return { ...item, tipo: 'nenhum' };
-          });
+            });
 
-          // O valorRecebido (do inquilino) não possui descontos das despesas_proprietario
-          const valorRecebido = Number(latestCobranca.valorTotal.toFixed(2));
-          // O boleto total pago pela ADM inclui a cota condominial + todos os itens que fazem parte do condomínio
-          const valorCondominioTotalPagamento = Number((latestCobranca.valorCondominio || 0).toFixed(2)) + 
-            (latestCobranca.itensAdicionais || []).filter(i => i.fazParteCondominio).reduce((sum, item) => sum + Number(item.valor), 0);
-          
-          const valorIptuTotal = Number((latestCobranca.valorIptu || 0).toFixed(2));
-          
-          // IPTU não é deduzido por padrão, a não ser que a ADM pague o boleto (pode ser ajustado na edição do repasse).
-          let valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotalPagamento;
+            // O valorRecebido (do inquilino) não possui descontos das despesas_proprietario
+            const valorRecebido = Number(latestCobranca.valorTotal.toFixed(2));
+            // O boleto total pago pela ADM inclui a cota condominial + todos os itens que fazem parte do condomínio
+            const valorCondominioTotalPagamento = Number((latestCobranca.valorCondominio || 0).toFixed(2)) + 
+              (latestCobranca.itensAdicionais || []).filter(i => i.fazParteCondominio).reduce((sum, item) => sum + Number(item.valor), 0);
+            
+            const valorIptuTotal = Number((latestCobranca.valorIptu || 0).toFixed(2));
+            
+            // IPTU não é deduzido por padrão, a não ser que a ADM pague o boleto (pode ser ajustado na edição do repasse).
+            let valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotalPagamento;
 
-          // Subtrair despesas do proprietário que não entraram no boleto do condomínio
-          // Exemplo: Uma despesa que a ADM pagou avulsa (encanador) informada na cobrança.
-          (latestCobranca.itensAdicionais || []).forEach(item => {
-            if (item.tipo === 'despesa_proprietario' && !item.fazParteCondominio) {
-              valorLiquido -= Number(item.valor);
-            }
-          });
+            // Subtrair despesas do proprietário que não entraram no boleto do condomínio
+            // Exemplo: Uma despesa que a ADM pagou avulsa (encanador) informada na cobrança.
+            (latestCobranca.itensAdicionais || []).forEach(item => {
+              if (item.tipo === 'despesa_proprietario' && !item.fazParteCondominio) {
+                valorLiquido -= Number(item.valor);
+              }
+            });
 
-          valorLiquido = Number(valorLiquido.toFixed(2));
+            valorLiquido = Number(valorLiquido.toFixed(2));
 
-          const repasseData = {
-            contratoId: latestCobranca.contratoId,
-            proprietarioId: contrato.proprietarioId,
-            cobrancaId: latestCobranca.id,
-            mesReferencia: latestCobranca.mesReferencia,
-            valorAluguel: Number(latestCobranca.valorAluguel.toFixed(2)),
-            valorRecebido: valorRecebido,
-            taxaAdministracao: taxaAdmValor,
-            valorCondominio: valorCondominioTotalPagamento,
-            tipoCondominio: 'desconto', // Desconto porque a ADM paga o boleto total do condomínio
-            valorIptu: valorIptuTotal,
-            tipoIptu: 'nenhum', // Pode ser marcado como 'desconto' se a ADM for pagar o IPTU
-            condoProporcionalDesc: latestCobranca.condoProporcionalDesc || '',
-            condoProporcionalValor: latestCobranca.condoProporcionalValor || 0,
-            iptuProporcionalDesc: latestCobranca.iptuProporcionalDesc || '',
-            iptuProporcionalValor: latestCobranca.iptuProporcionalValor || 0,
-            itensAdicionais: itensAdicionaisRepasse,
-            valorLiquido: valorLiquido,
-            status: 'Pendente',
-            createdAt: new Date().toISOString()
-          };
+            const repasseData = {
+              contratoId: latestCobranca.contratoId,
+              proprietarioId: contrato.proprietarioId,
+              cobrancaId: latestCobranca.id,
+              mesReferencia: latestCobranca.mesReferencia,
+              valorAluguel: Number(latestCobranca.valorAluguel.toFixed(2)),
+              valorRecebido: valorRecebido,
+              taxaAdministracao: taxaAdmValor,
+              valorCondominio: valorCondominioTotalPagamento,
+              tipoCondominio: 'desconto', // Desconto porque a ADM paga o boleto total do condomínio
+              valorIptu: valorIptuTotal,
+              tipoIptu: 'nenhum', // Pode ser marcado como 'desconto' se a ADM for pagar o IPTU
+              condoProporcionalDesc: latestCobranca.condoProporcionalDesc || '',
+              condoProporcionalValor: latestCobranca.condoProporcionalValor || 0,
+              iptuProporcionalDesc: latestCobranca.iptuProporcionalDesc || '',
+              iptuProporcionalValor: latestCobranca.iptuProporcionalValor || 0,
+              itensAdicionais: itensAdicionaisRepasse,
+              valorLiquido: valorLiquido,
+              status: 'Pendente',
+              createdAt: new Date().toISOString()
+            };
 
-          console.log('Gerando repasse com itens:', itensAdicionaisRepasse);
-          batch.set(repasseRef, repasseData);
+            console.log('Gerando repasse com itens:', itensAdicionaisRepasse);
+            batch.set(repasseRef, repasseData);
+          }
 
           await batch.commit();
           setConfirmAction(null);
@@ -598,7 +616,8 @@ export default function Financeiro() {
           cobranca={cobranca} 
           contrato={contrato} 
           inquilino={inquilino} 
-          imovel={imovel} 
+          imovel={imovel}
+          isComplementar={cobranca.isComplementar}
         />
       ).toBlob();
       
@@ -632,7 +651,8 @@ export default function Financeiro() {
           contrato={contrato} 
           proprietario={proprietario}
           inquilino={inquilino} 
-          imovel={imovel} 
+          imovel={imovel}
+          isComplementar={repasse.isComplementar}
         />
       ).toBlob();
       
@@ -669,6 +689,15 @@ export default function Financeiro() {
         <div>
           <h1 className="text-2xl font-bold text-[#1E2732]">Financeiro</h1>
           <p className="text-gray-500">Gestão de recebimentos e repasses</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsComplementarModalOpen(true)}
+            className="bg-white border border-[#F47B20] text-[#F47B20] px-4 py-2 rounded-xl font-bold hover:bg-[#FFF5ED] transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Fechamento Complementar
+          </button>
         </div>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
@@ -1287,6 +1316,21 @@ export default function Financeiro() {
           </div>
         </div>
       )}
+
+      <FechamentoComplementarModal
+        isOpen={isComplementarModalOpen}
+        onClose={() => setIsComplementarModalOpen(false)}
+        onSuccess={() => {
+          setIsComplementarModalOpen(false);
+          fetchData();
+        }}
+        contratos={Object.values(contratos)}
+        imoveis={imoveis}
+        inquilinos={inquilinos}
+        proprietarios={proprietarios}
+        mesGeracao={selectedMonth}
+        anoGeracao={selectedYear}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, doc, setDoc, query, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { CheckCircle2, Circle, Search, ChevronLeft, ChevronRight, FileText, Send, DollarSign, Building, FileSignature, Wallet, MessageCircle, Upload, Paperclip } from 'lucide-react';
+import { CheckCircle2, Circle, Search, ChevronLeft, ChevronRight, FileText, Send, DollarSign, Building, FileSignature, Wallet, MessageCircle, Upload, Paperclip, Plus } from 'lucide-react';
 
 export default function RotinaFinanceira() {
   const [contratos, setContratos] = useState<any[]>([]);
@@ -330,6 +330,7 @@ export default function RotinaFinanceira() {
           </table>
         </div>
       </div>
+      
     </div>
   );
 }

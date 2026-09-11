@@ -333,7 +333,7 @@ const formatCurrency = (value: number) => {
   return `R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const CoverPage = ({ type, monthYear }: { type: 'LOCATÁRIO' | 'LOCADOR', monthYear: string }) => (
+const CoverPage = ({ type, monthYear }: { type: string, monthYear: string }) => (
   <Page size="A4" style={styles.coverPage}>
     <Image src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop" style={styles.coverImage} />
     <View style={styles.coverOverlay} />
@@ -376,7 +376,7 @@ const formatMesReferencia = (mesRef?: string) => {
   return mesRef.includes('/') ? mesRef.replace('/', ' / ') : mesRef;
 };
 
-export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilinos = [] }: any) => {
+export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilinos = [], isComplementar = false }: any) => {
   const inquilinosNomes = [inquilino?.nome, ...coInquilinos.map((c: any) => c.nome)].filter(Boolean).join(', ');
   const mesRef = formatMesReferencia(cobranca?.mesReferencia);
   
@@ -395,10 +395,10 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
 
   return (
   <Document>
-    <CoverPage type="LOCATÁRIO" monthYear={mesRef} />
+    <CoverPage type={isComplementar ? "LOCATÁRIO - COMPLEMENTAR" : "LOCATÁRIO"} monthYear={mesRef} />
     <Page size="A4" style={styles.page}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Prestação de contas</Text>
+        <Text style={styles.headerTitle}>{isComplementar ? "Fechamento complementar" : "Prestação de contas"}</Text>
         <View style={styles.logoContainer}>
           <Image src={logo3Path} style={styles.secondaryLogo} />
           <Image src={logo1Path} style={{ width: 120 }} />
@@ -545,7 +545,7 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
   );
 };
 
-export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inquilino, imovel }: any) => {
+export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inquilino, imovel, isComplementar = false }: any) => {
   const proprietariosArray = [proprietario];
   const inquilinosArray = [inquilino];
 
@@ -581,12 +581,12 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
 
   return (
   <Document>
-    <CoverPage type="LOCADOR" monthYear={mesRef} />
+    <CoverPage type={isComplementar ? "LOCADOR - COMPLEMENTAR" : "LOCADOR"} monthYear={mesRef} />
     
     {/* PÁGINA 1: Valores Recebidos do Locatário */}
     <Page size="A4" style={styles.page}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Prestação de contas</Text>
+        <Text style={styles.headerTitle}>{isComplementar ? "Fechamento complementar" : "Prestação de contas"}</Text>
         <View style={styles.logoContainer}>
           <Image src={logo3Path} style={styles.secondaryLogo} />
           <Image src={logo1Path} style={{ width: 120 }} />
@@ -729,7 +729,7 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
     {/* PÁGINA 2: Descontos e Repasse */}
     <Page size="A4" style={styles.page}>
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Demonstrativo de Repasse</Text>
+        <Text style={styles.headerTitle}>{isComplementar ? "Repasse complementar" : "Demonstrativo de Repasse"}</Text>
         <View style={styles.logoContainer}>
           <Image src={logo3Path} style={styles.secondaryLogo} />
           <Image src={logo1Path} style={{ width: 120, height: 'auto' }} />
