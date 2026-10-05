@@ -14,8 +14,19 @@ export interface ItemAdicional {
   id: string;
   descricao: string;
   valor: number;
-  tipo: 'acrescimo' | 'desconto' | 'despesa_proprietario' | 'nenhum';
+  tipo: 'acrescimo' | 'desconto' | 'despesa_proprietario' | 'nenhum' | 'credito' | 'debito';
   fazParteCondominio?: boolean;
+  natureza?: 'credito' | 'debito';
+}
+
+export interface CompensacaoCaucao {
+  ativo: boolean;
+  valorCaucaoOriginal: number;
+  rendimentoPoupanca: number;
+  valorCaucaoAtualizada: number;
+  valorMultaRescisoria: number;
+  descricaoMulta?: string;
+  saldoCaucaoAplicado: number;
 }
 
 export interface Cobranca {
@@ -38,6 +49,7 @@ export interface Cobranca {
   dataPagamento?: string;
   isComplementar?: boolean;
   complementarRepasseData?: any;
+  compensacaoCaucao?: CompensacaoCaucao;
 }
 
 export interface Repasse {
@@ -62,6 +74,10 @@ export interface Repasse {
   status: 'Pendente' | 'Pago';
   dataRepasse?: string;
   isComplementar?: boolean;
+  isDevolucaoInquilino?: boolean;
+  beneficiarioTipo?: 'proprietario' | 'inquilino';
+  inquilinoId?: string;
+  compensacaoCaucao?: CompensacaoCaucao;
 }
 
 export interface DespesaAvulsa {
@@ -103,12 +119,17 @@ export default function Financeiro() {
   // Edit Cobranca state
   const [editingCobranca, setEditingCobranca] = useState<Cobranca | null>(null);
   const [editingItens, setEditingItens] = useState<ItemAdicional[]>([]);
+  const [compensarCaucao, setCompensarCaucao] = useState(false);
+  const [caucaoOriginal, setCaucaoOriginal] = useState<number | string>('');
+  const [rendimentoPoupanca, setRendimentoPoupanca] = useState<number | string>('');
+  const [multaRescisoria, setMultaRescisoria] = useState<number | string>('');
+  const [descricaoMulta, setDescricaoMulta] = useState('Multa Rescisória Contratual');
   const { register, handleSubmit, reset, formState: { errors } } = useForm<Cobranca>();
 
   // Edit Repasse state
   const [editingRepasse, setEditingRepasse] = useState<Repasse | null>(null);
   const [editingItensRepasse, setEditingItensRepasse] = useState<ItemAdicional[]>([]);
-  const { register: registerRepasse, handleSubmit: handleSubmitRepasse, reset: resetRepasse } = useForm<Repasse>();
+  const { register: registerRepasse, handleSubmit: handleSubmitRepasse, reset: resetRepasse, setValue: setValueRepasse, watch: watchRepasse } = useForm<Repasse>();
 
   useEffect(() => {
     fetchData();
@@ -315,6 +336,14 @@ export default function Financeiro() {
       dataVencimento: cob.dataVencimento ? format(new Date(cob.dataVencimento), 'yyyy-MM-dd') : ''
     });
     setEditingItens(cob.itensAdicionais || []);
+    
+    const comp = cob.compensacaoCaucao;
+    setCompensarCaucao(!!comp?.ativo);
+    setCaucaoOriginal(comp?.valorCaucaoOriginal ?? '');
+    setRendimentoPoupanca(comp?.rendimentoPoupanca ?? '');
+    setMultaRescisoria(comp?.valorMultaRescisoria ?? '');
+    setDescricaoMulta(comp?.descricaoMulta || 'Multa Rescisória Contratual');
+
     setEditingCobranca(cob);
   };
 
@@ -332,10 +361,33 @@ export default function Financeiro() {
       let valorTotal = valorAluguel + valorCondominio + valorIptu + taxasExtras + condoProporcionalValor + iptuProporcionalValor;
       
       editingItens.forEach(item => {
-        if (item.tipo === 'acrescimo') valorTotal += item.valor;
-        else if (item.tipo === 'desconto') valorTotal -= item.valor;
+        if (item.tipo === 'acrescimo' || item.tipo === 'debito') valorTotal += item.valor;
+        else if (item.tipo === 'desconto' || item.tipo === 'credito') valorTotal -= item.valor;
         // Itens do tipo 'despesa_proprietario' não subtraem do valor cobrado do inquilino
       });
+
+      let compensacaoData: any = null;
+      if (compensarCaucao) {
+        const vCaucao = Number(Number(caucaoOriginal).toFixed(2)) || 0;
+        const vRend = Number(Number(rendimentoPoupanca).toFixed(2)) || 0;
+        const vTotalCaucao = Number((vCaucao + vRend).toFixed(2));
+        const vMulta = Number(Number(multaRescisoria).toFixed(2)) || 0;
+        const saldoCaucaoAplicado = Number((vTotalCaucao - vMulta).toFixed(2));
+        
+        valorTotal -= saldoCaucaoAplicado;
+
+        compensacaoData = {
+          ativo: true,
+          valorCaucaoOriginal: vCaucao,
+          rendimentoPoupanca: vRend,
+          valorCaucaoAtualizada: vTotalCaucao,
+          valorMultaRescisoria: vMulta,
+          descricaoMulta: descricaoMulta || 'Multa Rescisória Contratual',
+          saldoCaucaoAplicado
+        };
+      } else {
+        compensacaoData = { ativo: false };
+      }
 
       valorTotal = Number(valorTotal.toFixed(2));
 
@@ -352,7 +404,8 @@ export default function Financeiro() {
         iptuProporcionalDesc: data.iptuProporcionalDesc || '',
         iptuProporcionalValor,
         itensAdicionais: editingItens,
-        valorTotal
+        valorTotal,
+        compensacaoCaucao: compensacaoData
       });
 
       setEditingCobranca(null);
@@ -430,37 +483,46 @@ export default function Financeiro() {
             };
             batch.set(repasseRef, repasseData);
           } else {
-            const taxaAdmValor = Number(((latestCobranca.valorAluguel * contrato.taxaAdministracao) / 100).toFixed(2));
+            const isCompensacao = !!latestCobranca.compensacaoCaucao?.ativo;
+            const taxaAdmValor = isCompensacao ? 0 : Number(((latestCobranca.valorAluguel * contrato.taxaAdministracao) / 100).toFixed(2));
             
             // Copiar itens da cobrança para o repasse
             const itensAdicionaisRepasse = (latestCobranca.itensAdicionais || []).map(item => {
               if (item.fazParteCondominio) {
-                return { ...item, tipo: 'nenhum' };
+                return { ...item, tipo: 'nenhum' as const };
               }
               if (item.tipo === 'despesa_proprietario') {
-                return { ...item, tipo: 'desconto' };
+                return { ...item, tipo: 'desconto' as const };
               }
-              return { ...item, tipo: 'nenhum' };
+              return { ...item, tipo: 'nenhum' as const };
             });
 
-            // O valorRecebido (do inquilino) não possui descontos das despesas_proprietario
+            // O valorRecebido (do inquilino) é o valor total apurado e pago da cobrança
             const valorRecebido = Number(latestCobranca.valorTotal.toFixed(2));
+
             // O boleto total pago pela ADM inclui a cota condominial + todos os itens que fazem parte do condomínio
             const valorCondominioTotalPagamento = Number((latestCobranca.valorCondominio || 0).toFixed(2)) + 
               (latestCobranca.itensAdicionais || []).filter(i => i.fazParteCondominio).reduce((sum, item) => sum + Number(item.valor), 0);
             
             const valorIptuTotal = Number((latestCobranca.valorIptu || 0).toFixed(2));
             
-            // IPTU não é deduzido por padrão, a não ser que a ADM pague o boleto (pode ser ajustado na edição do repasse).
-            let valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotalPagamento;
+            let valorLiquido = valorRecebido;
 
-            // Subtrair despesas do proprietário que não entraram no boleto do condomínio
-            // Exemplo: Uma despesa que a ADM pagou avulsa (encanador) informada na cobrança.
-            (latestCobranca.itensAdicionais || []).forEach(item => {
-              if (item.tipo === 'despesa_proprietario' && !item.fazParteCondominio) {
-                valorLiquido -= Number(item.valor);
-              }
-            });
+            if (!isCompensacao) {
+              // IPTU não é deduzido por padrão, a não ser que a ADM pague o boleto (pode ser ajustado na edição do repasse).
+              valorLiquido = valorRecebido - taxaAdmValor - valorCondominioTotalPagamento;
+
+              // Subtrair despesas do proprietário que não entraram no boleto do condomínio
+              (latestCobranca.itensAdicionais || []).forEach(item => {
+                if (item.tipo === 'despesa_proprietario' && !item.fazParteCondominio) {
+                  valorLiquido -= Number(item.valor);
+                }
+              });
+            } else {
+              // Em compensação de caução, o locador já reteve a caução que cobre a multa rescisória e o abatimento das despesas.
+              // O valor líquido a transferir em dinheiro é exatamente o saldo recebido do inquilino.
+              valorLiquido = valorRecebido;
+            }
 
             valorLiquido = Number(valorLiquido.toFixed(2));
 
@@ -473,7 +535,7 @@ export default function Financeiro() {
               valorRecebido: valorRecebido,
               taxaAdministracao: taxaAdmValor,
               valorCondominio: valorCondominioTotalPagamento,
-              tipoCondominio: 'desconto', // Desconto porque a ADM paga o boleto total do condomínio
+              tipoCondominio: isCompensacao ? 'nenhum' : 'desconto', // Quando compensado, despesas foram abatidas da caução
               valorIptu: valorIptuTotal,
               tipoIptu: 'nenhum', // Pode ser marcado como 'desconto' se a ADM for pagar o IPTU
               condoProporcionalDesc: latestCobranca.condoProporcionalDesc || '',
@@ -482,6 +544,7 @@ export default function Financeiro() {
               iptuProporcionalValor: latestCobranca.iptuProporcionalValor || 0,
               itensAdicionais: itensAdicionaisRepasse,
               valorLiquido: valorLiquido,
+              compensacaoCaucao: latestCobranca.compensacaoCaucao || null,
               status: 'Pendente',
               createdAt: new Date().toISOString()
             };
@@ -521,6 +584,7 @@ export default function Financeiro() {
 
   const openEditRepasse = (rep: Repasse) => {
     const cobranca = cobrancas.find(c => c.id === rep.cobrancaId);
+    const hasCompensacao = !!(rep.compensacaoCaucao?.ativo || cobranca?.compensacaoCaucao?.ativo);
     
     // Garantir que os valores venham da cobrança se não existirem no repasse (fallback robusto)
     const valorCondominio = rep.valorCondominio !== undefined && rep.valorCondominio !== null 
@@ -531,27 +595,48 @@ export default function Financeiro() {
       ? rep.valorIptu 
       : (cobranca?.valorIptu || 0);
 
+    // Se houve compensação de caução e o repasse foi gerado antes com o valor inflado (ex: 10458.90),
+    // sugerir o valor real recebido do inquilino (ex: 189.92)
+    let valorRecebidoInicial = rep.valorRecebido;
+    if (hasCompensacao && cobranca && (rep.valorRecebido >= 10000 || rep.valorRecebido > (cobranca.valorTotal + 100))) {
+      valorRecebidoInicial = cobranca.valorTotal;
+    } else if (rep.valorRecebido === undefined || rep.valorRecebido === null) {
+      valorRecebidoInicial = cobranca?.valorTotal || 0;
+    }
+
     resetRepasse({
       ...rep,
       valorAluguel: Number((rep.valorAluguel || (cobranca?.valorAluguel || 0)).toFixed(2)),
-      valorRecebido: Number((rep.valorRecebido || (cobranca?.valorTotal || 0)).toFixed(2)),
-      taxaAdministracao: Number((rep.taxaAdministracao || 0).toFixed(2)),
+      valorRecebido: Number(valorRecebidoInicial.toFixed(2)),
+      taxaAdministracao: hasCompensacao ? 0 : Number((rep.taxaAdministracao || 0).toFixed(2)),
       valorCondominio: Number(valorCondominio.toFixed(2)),
-      tipoCondominio: rep.tipoCondominio || 'desconto',
+      tipoCondominio: hasCompensacao ? 'nenhum' : (rep.tipoCondominio || 'desconto'),
       valorIptu: Number(valorIptu.toFixed(2)),
-      tipoIptu: rep.tipoIptu || 'desconto',
+      tipoIptu: rep.tipoIptu || 'nenhum',
       condoProporcionalDesc: rep.condoProporcionalDesc || (cobranca?.condoProporcionalDesc || ''),
       condoProporcionalValor: Number((rep.condoProporcionalValor || (cobranca?.condoProporcionalValor || 0)).toFixed(2)),
       iptuProporcionalDesc: rep.iptuProporcionalDesc || (cobranca?.iptuProporcionalDesc || ''),
       iptuProporcionalValor: Number((rep.iptuProporcionalValor || (cobranca?.iptuProporcionalValor || 0)).toFixed(2))
     });
-    setEditingItensRepasse(rep.itensAdicionais || []);
+
+    // Se houver compensação, evitar que itens adicionais de multa dupliquem o repasse
+    const itensLimpos = (rep.itensAdicionais || []).map(i => {
+      if (hasCompensacao && i.id?.startsWith('multa_caucao_')) {
+        return { ...i, tipo: 'nenhum' as const };
+      }
+      return i;
+    });
+
+    setEditingItensRepasse(itensLimpos);
     setEditingRepasse(rep);
   };
 
   const onSubmitEditRepasse = async (data: Repasse) => {
     try {
       if (!editingRepasse) return;
+      
+      const cobranca = cobrancas.find(c => c.id === editingRepasse.cobrancaId);
+      const compensacaoCaucao = editingRepasse.compensacaoCaucao || cobranca?.compensacaoCaucao || null;
       
       const valorAluguel = Number(Number(data.valorAluguel).toFixed(2)) || 0;
       const valorRecebido = Number(Number(data.valorRecebido).toFixed(2)) || 0;
@@ -573,8 +658,8 @@ export default function Financeiro() {
       }
       
       editingItensRepasse.forEach(item => {
-        if (item.tipo === 'acrescimo') valorLiquido += item.valor;
-        else if (item.tipo === 'desconto') valorLiquido -= item.valor;
+        if (item.tipo === 'acrescimo' || item.tipo === 'credito') valorLiquido += item.valor;
+        else if (item.tipo === 'desconto' || item.tipo === 'debito') valorLiquido -= item.valor;
       });
 
       valorLiquido = Number(valorLiquido.toFixed(2));
@@ -593,7 +678,8 @@ export default function Financeiro() {
         iptuProporcionalDesc: data.iptuProporcionalDesc || '',
         iptuProporcionalValor: Number(Number(data.iptuProporcionalValor).toFixed(2)) || 0,
         itensAdicionais: editingItensRepasse,
-        valorLiquido
+        valorLiquido,
+        ...(compensacaoCaucao ? { compensacaoCaucao } : {})
       });
 
       setEditingRepasse(null);
@@ -807,7 +893,19 @@ export default function Financeiro() {
                     filteredCobrancas.map(cob => (
                       <tr key={cob.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                         <td className="p-4">
-                          <p className="font-medium text-[#1E2732]">{inquilinos[cob.inquilinoId]?.nome || 'Desconhecido'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-[#1E2732]">{inquilinos[cob.inquilinoId]?.nome || 'Desconhecido'}</p>
+                            {cob.isComplementar && (
+                              <span className="text-[10px] bg-orange-100 text-[#F47B20] font-bold px-1.5 py-0.5 rounded-full uppercase">
+                                Complementar
+                              </span>
+                            )}
+                            {cob.compensacaoCaucao?.ativo && (
+                              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full uppercase">
+                                Caução Compensada
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">CT: {contratos[cob.contratoId]?.codigo}</p>
                         </td>
                         <td className="p-4 text-sm text-gray-600">{cob.mesReferencia}</td>
@@ -871,7 +969,23 @@ export default function Financeiro() {
                     filteredRepasses.map(rep => (
                       <tr key={rep.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                         <td className="p-4">
-                          <p className="font-medium text-[#1E2732]">{proprietarios[rep.proprietarioId]?.nome || 'Desconhecido'}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-[#1E2732]">
+                              {rep.isDevolucaoInquilino
+                                ? `Devolução Inquilino: ${inquilinos[rep.inquilinoId || '']?.nome || 'Inquilino'}`
+                                : (proprietarios[rep.proprietarioId]?.nome || 'Desconhecido')}
+                            </p>
+                            {rep.isComplementar && (
+                              <span className="text-[10px] bg-orange-100 text-[#F47B20] font-bold px-1.5 py-0.5 rounded-full uppercase">
+                                Complementar
+                              </span>
+                            )}
+                            {rep.isDevolucaoInquilino && (
+                              <span className="text-[10px] bg-green-100 text-green-700 font-bold px-1.5 py-0.5 rounded-full uppercase">
+                                Caução
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-gray-500">CT: {contratos[rep.contratoId]?.codigo}</p>
                         </td>
                         <td className="p-4 text-sm text-gray-600">{rep.mesReferencia}</td>
@@ -1013,11 +1127,13 @@ export default function Financeiro() {
                         value={item.tipo}
                         onChange={(e) => {
                           const newItens = [...editingItens];
-                          newItens[index].tipo = e.target.value as 'acrescimo' | 'desconto' | 'despesa_proprietario';
+                          newItens[index].tipo = e.target.value as any;
                           setEditingItens(newItens);
                         }}
-                        className="w-28 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                        className="w-36 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
                       >
+                        <option value="debito">- Débito (Cobrança)</option>
+                        <option value="credito">+ Crédito (Abatimento / Caução)</option>
                         <option value="acrescimo">Acréscimo</option>
                         <option value="desconto">Desconto</option>
                         <option value="despesa_proprietario">Desp. Proprietário</option>
@@ -1046,6 +1162,119 @@ export default function Financeiro() {
                     </div>
                   ))}
                 </div>
+
+                {/* PAINEL DE COMPENSAÇÃO DE CAUÇÃO (RESCISÃO CONTRATUAL) */}
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={compensarCaucao} 
+                          onChange={(e) => setCompensarCaucao(e.target.checked)}
+                          className="w-4 h-4 rounded text-[#F47B20] focus:ring-[#F47B20]"
+                        />
+                        <span className="font-bold text-sm text-[#1E2732]">
+                          Compensar Saldo de Caução nesta Cobrança (Rescisão)
+                        </span>
+                      </label>
+                      <span className="text-xs bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-bold">
+                        Encontro de Contas
+                      </span>
+                    </div>
+
+                    {compensarCaucao && (
+                      <div className="space-y-3 pt-2 border-t border-amber-200/60">
+                        <p className="text-xs text-gray-600">
+                          Informe a caução retida, a correção da poupança e a multa rescisória. O saldo apurado será abatido das despesas desta cobrança e constará no relatório final.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Caução Original (R$)
+                            </label>
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="10200.00"
+                              value={caucaoOriginal}
+                              onChange={(e) => setCaucaoOriginal(e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Rend. Poupança (R$)
+                            </label>
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="68.98"
+                              value={rendimentoPoupanca}
+                              onChange={(e) => setRendimentoPoupanca(e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white font-medium"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                              Multa Rescisória (R$)
+                            </label>
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="6800.00"
+                              value={multaRescisoria}
+                              onChange={(e) => setMultaRescisoria(e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white font-medium text-red-600"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Descrição da Multa (Para o Relatório e Repasse do Proprietário)
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="Ex: Multa Rescisória Contratual (2 meses de locação)"
+                            value={descricaoMulta}
+                            onChange={(e) => setDescricaoMulta(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white"
+                          />
+                        </div>
+
+                        {/* RESUMO DO CÁLCULO DA COMPENSAÇÃO */}
+                        {(() => {
+                          const vC = Number(Number(caucaoOriginal).toFixed(2)) || 0;
+                          const vR = Number(Number(rendimentoPoupanca).toFixed(2)) || 0;
+                          const vTot = Number((vC + vR).toFixed(2));
+                          const vM = Number(Number(multaRescisoria).toFixed(2)) || 0;
+                          const vSaldoAplicar = Number((vTot - vM).toFixed(2));
+
+                          return (
+                            <div className="bg-white p-3 rounded-lg border border-amber-200 text-xs space-y-1">
+                              <div className="flex justify-between text-gray-600">
+                                <span>Total Caução Atualizada (+):</span>
+                                <span className="font-bold text-green-700">{formatCurrency(vTot)}</span>
+                              </div>
+                              <div className="flex justify-between text-gray-600">
+                                <span>(-) Retenção Multa Rescisória:</span>
+                                <span className="font-bold text-red-600">-{formatCurrency(vM)}</span>
+                              </div>
+                              <div className="flex justify-between border-t border-gray-100 pt-1 font-bold text-emerald-800">
+                                <span>(=) Saldo de Caução Utilizado para Abater do Mês:</span>
+                                <span>-{formatCurrency(vSaldoAplicar)}</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
@@ -1073,6 +1302,66 @@ export default function Financeiro() {
             </div>
             <form onSubmit={handleSubmitRepasse(onSubmitEditRepasse)} className="flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {/* ALERTA DE COMPENSAÇÃO DE CAUÇÃO (ENCONTRO DE CONTAS) */}
+                {(() => {
+                  const cob = cobrancas.find(c => c.id === editingRepasse.cobrancaId);
+                  const comp = editingRepasse.compensacaoCaucao || cob?.compensacaoCaucao;
+                  if (!comp?.ativo) return null;
+
+                  const valorRealInquilino = cob ? Number(cob.valorTotal.toFixed(2)) : 0;
+
+                  return (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm text-emerald-900 flex items-center gap-1.5">
+                          <CheckCircle size={16} className="text-emerald-600" />
+                          Encontro de Contas & Compensação de Caução
+                        </span>
+                        <span className="text-xs bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-bold">
+                          Caução em Custódia
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-gray-600 bg-white p-3 rounded-lg border border-emerald-100">
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">Caução Atualizada</span>
+                          <span className="font-semibold text-emerald-800">{formatCurrency(comp.valorCaucaoAtualizada)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">Multa Rescisória</span>
+                          <span className="font-semibold text-red-600">-{formatCurrency(comp.valorMultaRescisoria)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">Saldo Aplicado Mês</span>
+                          <span className="font-semibold text-gray-700">-{formatCurrency(comp.saldoCaucaoAplicado)}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px]">Pago pelo Inquilino</span>
+                          <span className="font-bold text-[#F47B20]">{formatCurrency(valorRealInquilino)}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-emerald-800">
+                        O locador já reteve a caução que cobre a multa rescisória e o abatimento das despesas do mês. Apenas o saldo em dinheiro pago pelo inquilino deve ser repassado ao locador.
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setValueRepasse('valorRecebido', valorRealInquilino);
+                          setValueRepasse('taxaAdministracao', 0);
+                          setValueRepasse('tipoCondominio', 'nenhum');
+                          setValueRepasse('tipoIptu', 'nenhum');
+                          setEditingItensRepasse(editingItensRepasse.map(i => ({ ...i, tipo: 'nenhum' as const })));
+                        }}
+                        className="text-xs bg-emerald-600 text-white font-medium px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1.5"
+                      >
+                        <RefreshCw size={12} /> Ajustar para Repassar Diferença Recebida ({formatCurrency(valorRealInquilino)})
+                      </button>
+                    </div>
+                  );
+                })()}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">Aluguel (R$)</label>
@@ -1177,11 +1466,11 @@ export default function Financeiro() {
                           newItens[index].tipo = e.target.value as any;
                           setEditingItensRepasse(newItens);
                         }}
-                        className="w-40 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
+                        className="w-44 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#F47B20] outline-none"
                       >
-                        <option value="nenhum">Nenhum</option>
-                        <option value="acrescimo">Acréscimo</option>
-                        <option value="desconto">Desconto / Manutenção</option>
+                        <option value="acrescimo">+ Crédito / Acréscimo</option>
+                        <option value="desconto">- Débito / Desconto</option>
+                        <option value="nenhum">Nenhum (Informativo)</option>
                       </select>
                       <div className="flex items-center gap-1 h-10 px-2 border border-gray-300 rounded-lg bg-gray-50 flex-shrink-0">
                         <input 
@@ -1207,6 +1496,35 @@ export default function Financeiro() {
                     </div>
                   ))}
                 </div>
+
+                {/* RESUMO EM TEMPO REAL DO VALOR LÍQUIDO DO REPASSE */}
+                {(() => {
+                  const vRec = Number(watchRepasse('valorRecebido')) || 0;
+                  const vTaxa = Number(watchRepasse('taxaAdministracao')) || 0;
+                  const vCondo = Number(watchRepasse('valorCondominio')) || 0;
+                  const tCondo = watchRepasse('tipoCondominio');
+                  const vIptu = Number(watchRepasse('valorIptu')) || 0;
+                  const tIptu = watchRepasse('tipoIptu');
+                  
+                  let totalLiq = vRec - vTaxa;
+                  if (tCondo === 'desconto') totalLiq -= vCondo;
+                  if (tIptu === 'desconto') totalLiq -= vIptu;
+                  
+                  editingItensRepasse.forEach(item => {
+                    if (item.tipo === 'acrescimo' || item.tipo === 'credito') totalLiq += Number(item.valor) || 0;
+                    else if (item.tipo === 'desconto' || item.tipo === 'debito') totalLiq -= Number(item.valor) || 0;
+                  });
+
+                  return (
+                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 flex justify-between items-center mt-3">
+                      <div>
+                        <span className="text-xs font-semibold text-gray-700 block">Total Líquido Apurado do Repasse:</span>
+                        <span className="text-[11px] text-gray-500">Valor exato que será transferido para o locador</span>
+                      </div>
+                      <span className="text-xl font-bold text-emerald-700">{formatCurrency(totalLiq)}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="p-6 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">

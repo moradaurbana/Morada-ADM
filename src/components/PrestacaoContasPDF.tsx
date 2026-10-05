@@ -381,15 +381,18 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
   const mesRef = formatMesReferencia(cobranca?.mesReferencia);
   
   const itensCondominio = cobranca?.itensAdicionais?.filter((i: any) => i.fazParteCondominio) || [];
-  const itensAluguel = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && (i.tipo === 'desconto' || i.tipo === 'despesa_proprietario')) || [];
-  const itensOutros = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && i.tipo === 'acrescimo') || [];
+  const itensAluguel = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && (i.tipo === 'desconto' || i.tipo === 'credito' || i.tipo === 'despesa_proprietario')) || [];
+  const itensOutros = cobranca?.itensAdicionais?.filter((i: any) => !i.fazParteCondominio && (i.tipo === 'acrescimo' || i.tipo === 'debito')) || [];
+
+  const itensCreditoComplementar = cobranca?.itensAdicionais?.filter((i: any) => i.natureza === 'credito' || i.tipo === 'credito' || i.tipo === 'desconto') || [];
+  const itensDebitoComplementar = cobranca?.itensAdicionais?.filter((i: any) => i.natureza === 'debito' || i.tipo === 'debito' || i.tipo === 'acrescimo') || [];
 
   const temCondominio = (cobranca?.valorCondominio > 0) || (cobranca?.condoProporcionalValor > 0) || itensCondominio.length > 0;
   const temOutros = (cobranca?.valorIptu > 0) || (cobranca?.iptuProporcionalValor > 0) || (cobranca?.taxasExtras > 0) || itensOutros.length > 0;
 
-  const subtotalAluguel = (cobranca?.valorAluguel || 0) + itensAluguel.reduce((acc: number, i: any) => acc + (i.tipo === 'desconto' ? -Number(i.valor) : 0), 0);
+  const subtotalAluguel = (cobranca?.valorAluguel || 0) + itensAluguel.reduce((acc: number, i: any) => acc + (i.tipo === 'desconto' || i.tipo === 'credito' ? -Number(i.valor) : 0), 0);
   const subtotalCondo = (cobranca?.valorCondominio || 0) + (cobranca?.condoProporcionalValor || 0) + 
-    itensCondominio.reduce((acc: number, i: any) => acc + (i.tipo === 'acrescimo' ? Number(i.valor) : (i.tipo === 'desconto' ? -Number(i.valor) : 0)), 0);
+    itensCondominio.reduce((acc: number, i: any) => acc + (i.tipo === 'acrescimo' || i.tipo === 'debito' ? Number(i.valor) : (i.tipo === 'desconto' || i.tipo === 'credito' ? -Number(i.valor) : 0)), 0);
   const subtotalOutros = (cobranca?.valorIptu || 0) + (cobranca?.iptuProporcionalValor || 0) + (cobranca?.taxasExtras || 0) + 
     itensOutros.reduce((acc: number, i: any) => acc + Number(i.valor), 0);
 
@@ -423,107 +426,213 @@ export const InquilinoPDF = ({ cobranca, contrato, inquilino, imovel, coInquilin
       <Text style={styles.mesReferencia}>Mês referência: {mesRef}:</Text>
 
       <View style={styles.table}>
-        <View style={styles.tableSectionHeader}>
-          <Text style={styles.tableSectionHeaderText}>1. ALUGUEL E ABATIMENTOS</Text>
-        </View>
-        <View style={styles.tableRow}>
-          <Text style={styles.tableColLeft}>Aluguel</Text>
-          <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorAluguel)}</Text>
-        </View>
-        {itensAluguel.map((item: any, index: number) => (
-          <View key={`alug-${index}`} style={styles.tableRow}>
-            <Text style={[styles.tableColLeft, styles.textRed]}>{item.descricao}</Text>
-            <Text style={[styles.tableColRight, styles.textRed]}>- {formatCurrency(item.valor)}</Text>
-          </View>
-        ))}
-        {itensAluguel.length > 0 && (
-          <View style={styles.subtotalRow}>
-            <Text style={styles.subtotalLabel}>Subtotal Aluguel Líquido:</Text>
-            <Text style={styles.subtotalValue}>{formatCurrency(subtotalAluguel)}</Text>
-          </View>
-        )}
-
-        {temCondominio && (
+        {isComplementar ? (
           <>
             <View style={styles.tableSectionHeader}>
-              <Text style={styles.tableSectionHeaderText}>2. CONDOMÍNIO (FRAÇÃO DO LOCATÁRIO)</Text>
+              <Text style={styles.tableSectionHeaderText}>1. CRÉDITOS E GARANTIAS (ENTRADAS / CAUÇÃO)</Text>
             </View>
-            {cobranca?.valorCondominio > 0 && (
+            {itensCreditoComplementar.length === 0 ? (
               <View style={styles.tableRow}>
-                <Text style={styles.tableColLeft}>Cota condominial</Text>
-                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorCondominio)}</Text>
+                <Text style={styles.tableColLeft}>Nenhum crédito lançado</Text>
+                <Text style={styles.tableColRight}>R$ 0,00</Text>
               </View>
-            )}
-            {cobranca?.condoProporcionalValor > 0 && (
-              <View style={styles.tableRow}>
-                <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
-                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
-              </View>
-            )}
-            {itensCondominio.filter((i:any) => i.tipo !== 'despesa_proprietario').map((item: any, index: number) => {
-              const isDesconto = item.tipo === 'desconto';
-              return (
-                <View key={`cond-${index}`} style={styles.tableRow}>
-                  <Text style={[styles.tableColLeft, isDesconto ? styles.textRed : {}]}>{item.descricao}</Text>
-                  <Text style={[styles.tableColRight, isDesconto ? styles.textRed : {}]}>
-                    {isDesconto ? '- ' : ''}{formatCurrency(item.valor)}
-                  </Text>
+            ) : (
+              itensCreditoComplementar.map((item: any, index: number) => (
+                <View key={`cred-${index}`} style={styles.tableRow}>
+                  <Text style={[styles.tableColLeft, { color: '#16a34a' }]}>+ {item.descricao}</Text>
+                  <Text style={[styles.tableColRight, { color: '#16a34a' }]}>+ {formatCurrency(item.valor)}</Text>
                 </View>
-              );
-            })}
-            
-            {itensCondominio.filter((i:any) => i.tipo === 'despesa_proprietario').map((item: any, index: number) => (
-               <View key={`cond-prop-${index}`} style={styles.tableRow}>
-                 <Text style={styles.tableColLeft}>{item.descricao} (Resp. Proprietário)</Text>
-                 <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
-               </View>
-            ))}
-            
+              ))
+            )}
             <View style={styles.subtotalRow}>
-              <Text style={styles.subtotalLabel}>Subtotal Condomínio a Pagar:</Text>
-              <Text style={styles.subtotalValue}>{formatCurrency(subtotalCondo)}</Text>
+              <Text style={styles.subtotalLabel}>Total Créditos / Garantias:</Text>
+              <Text style={[styles.subtotalValue, { color: '#16a34a' }]}>
+                + {formatCurrency(itensCreditoComplementar.reduce((acc: number, i: any) => acc + Number(i.valor), 0))}
+              </Text>
             </View>
+
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>2. DÉBITOS E ENCARGOS (MULTAS / ALUGUEL / DESPESAS)</Text>
+            </View>
+            {itensDebitoComplementar.length === 0 ? (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>Nenhum débito lançado</Text>
+                <Text style={styles.tableColRight}>R$ 0,00</Text>
+              </View>
+            ) : (
+              itensDebitoComplementar.map((item: any, index: number) => (
+                <View key={`deb-${index}`} style={styles.tableRow}>
+                  <Text style={[styles.tableColLeft, styles.textRed]}>- {item.descricao}</Text>
+                  <Text style={[styles.tableColRight, styles.textRed]}>- {formatCurrency(item.valor)}</Text>
+                </View>
+              ))
+            )}
+            <View style={styles.subtotalRow}>
+              <Text style={styles.subtotalLabel}>Total Débitos e Encargos:</Text>
+              <Text style={[styles.subtotalValue, styles.textRed]}>
+                - {formatCurrency(itensDebitoComplementar.reduce((acc: number, i: any) => acc + Number(i.valor), 0))}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>1. ALUGUEL E ABATIMENTOS</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableColLeft}>Aluguel</Text>
+              <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorAluguel)}</Text>
+            </View>
+            {itensAluguel.map((item: any, index: number) => (
+              <View key={`alug-${index}`} style={styles.tableRow}>
+                <Text style={[styles.tableColLeft, styles.textRed]}>{item.descricao}</Text>
+                <Text style={[styles.tableColRight, styles.textRed]}>- {formatCurrency(item.valor)}</Text>
+              </View>
+            ))}
+            {itensAluguel.length > 0 && (
+              <View style={styles.subtotalRow}>
+                <Text style={styles.subtotalLabel}>Subtotal Aluguel Líquido:</Text>
+                <Text style={styles.subtotalValue}>{formatCurrency(subtotalAluguel)}</Text>
+              </View>
+            )}
+
+            {temCondominio && (
+              <>
+                <View style={styles.tableSectionHeader}>
+                  <Text style={styles.tableSectionHeaderText}>2. CONDOMÍNIO (FRAÇÃO DO LOCATÁRIO)</Text>
+                </View>
+                {cobranca?.valorCondominio > 0 && (
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableColLeft}>Cota condominial</Text>
+                    <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorCondominio)}</Text>
+                  </View>
+                )}
+                {cobranca?.condoProporcionalValor > 0 && (
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableColLeft}>{cobranca?.condoProporcionalDesc || 'Condomínio Proporcional'}</Text>
+                    <Text style={styles.tableColRight}>{formatCurrency(cobranca?.condoProporcionalValor)}</Text>
+                  </View>
+                )}
+                {itensCondominio.filter((i:any) => i.tipo !== 'despesa_proprietario').map((item: any, index: number) => {
+                  const isDesconto = item.tipo === 'desconto';
+                  return (
+                    <View key={`cond-${index}`} style={styles.tableRow}>
+                      <Text style={[styles.tableColLeft, isDesconto ? styles.textRed : {}]}>{item.descricao}</Text>
+                      <Text style={[styles.tableColRight, isDesconto ? styles.textRed : {}]}>
+                        {isDesconto ? '- ' : ''}{formatCurrency(item.valor)}
+                      </Text>
+                    </View>
+                  );
+                })}
+                
+                {itensCondominio.filter((i:any) => i.tipo === 'despesa_proprietario').map((item: any, index: number) => (
+                   <View key={`cond-prop-${index}`} style={styles.tableRow}>
+                     <Text style={styles.tableColLeft}>{item.descricao} (Resp. Proprietário)</Text>
+                     <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
+                   </View>
+                ))}
+                
+                <View style={styles.subtotalRow}>
+                  <Text style={styles.subtotalLabel}>Subtotal Condomínio a Pagar:</Text>
+                  <Text style={styles.subtotalValue}>{formatCurrency(subtotalCondo)}</Text>
+                </View>
+              </>
+            )}
+
+            {temOutros && (
+              <>
+                <View style={styles.tableSectionHeader}>
+                  <Text style={styles.tableSectionHeaderText}>{temCondominio ? '3' : '2'}. IPTU E OUTRAS TAXAS</Text>
+                </View>
+                {cobranca?.valorIptu > 0 && (
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableColLeft}>IPTU</Text>
+                    <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorIptu)}</Text>
+                  </View>
+                )}
+                {cobranca?.iptuProporcionalValor > 0 && (
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
+                    <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
+                  </View>
+                )}
+                {cobranca?.taxasExtras > 0 && (
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableColLeft}>Taxas Extras</Text>
+                    <Text style={styles.tableColRight}>{formatCurrency(cobranca?.taxasExtras)}</Text>
+                  </View>
+                )}
+                {itensOutros.map((item: any, index: number) => (
+                  <View key={`out-${index}`} style={styles.tableRow}>
+                    <Text style={styles.tableColLeft}>{item.descricao}</Text>
+                    <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
+                  </View>
+                ))}
+                <View style={styles.subtotalRow}>
+                  <Text style={styles.subtotalLabel}>Subtotal Outros Encargos:</Text>
+                  <Text style={styles.subtotalValue}>{formatCurrency(subtotalOutros)}</Text>
+                </View>
+              </>
+            )}
           </>
         )}
 
-        {temOutros && (
+        {cobranca?.compensacaoCaucao?.ativo && (
           <>
-            <View style={styles.tableSectionHeader}>
-              <Text style={styles.tableSectionHeaderText}>{temCondominio ? '3' : '2'}. IPTU E OUTRAS TAXAS</Text>
+            <View style={[styles.tableSectionHeader, { backgroundColor: '#1E2732', marginTop: 12 }]}>
+              <Text style={[styles.tableSectionHeaderText, { color: '#ffffff' }]}>
+                {temCondominio || temOutros ? "3" : "2"}. COMPENSAÇÃO DE CRÉDITO DE CAUÇÃO (RESCISÃO CONTRATUAL)
+              </Text>
             </View>
-            {cobranca?.valorIptu > 0 && (
+            <View style={styles.tableRow}>
+              <Text style={styles.tableColLeft}>(+) Garantia Caução Original Retida</Text>
+              <Text style={[styles.tableColRight, { color: '#16a34a' }]}>
+                + {formatCurrency(cobranca.compensacaoCaucao.valorCaucaoOriginal)}
+              </Text>
+            </View>
+            {cobranca.compensacaoCaucao.rendimentoPoupanca > 0 && (
               <View style={styles.tableRow}>
-                <Text style={styles.tableColLeft}>IPTU</Text>
-                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.valorIptu)}</Text>
+                <Text style={styles.tableColLeft}>(+) Rendimento Poupança</Text>
+                <Text style={[styles.tableColRight, { color: '#16a34a' }]}>
+                  + {formatCurrency(cobranca.compensacaoCaucao.rendimentoPoupanca)}
+                </Text>
               </View>
             )}
-            {cobranca?.iptuProporcionalValor > 0 && (
+            <View style={[styles.tableRow, { backgroundColor: '#f0fdf4' }]}>
+              <Text style={[styles.tableColLeft, { fontWeight: 'bold' }]}>(=) Total da Caução Atualizada</Text>
+              <Text style={[styles.tableColRight, { color: '#16a34a', fontWeight: 'bold' }]}>
+                + {formatCurrency(cobranca.compensacaoCaucao.valorCaucaoAtualizada)}
+              </Text>
+            </View>
+            {cobranca.compensacaoCaucao.valorMultaRescisoria > 0 && (
               <View style={styles.tableRow}>
-                <Text style={styles.tableColLeft}>{cobranca?.iptuProporcionalDesc || 'IPTU Proporcional'}</Text>
-                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.iptuProporcionalValor)}</Text>
+                <Text style={[styles.tableColLeft, styles.textRed]}>
+                  (-) {cobranca.compensacaoCaucao.descricaoMulta || 'Multa Rescisória Contratual (Retenção)'}
+                </Text>
+                <Text style={[styles.tableColRight, styles.textRed]}>
+                  - {formatCurrency(cobranca.compensacaoCaucao.valorMultaRescisoria)}
+                </Text>
               </View>
             )}
-            {cobranca?.taxasExtras > 0 && (
-              <View style={styles.tableRow}>
-                <Text style={styles.tableColLeft}>Taxas Extras</Text>
-                <Text style={styles.tableColRight}>{formatCurrency(cobranca?.taxasExtras)}</Text>
-              </View>
-            )}
-            {itensOutros.map((item: any, index: number) => (
-              <View key={`out-${index}`} style={styles.tableRow}>
-                <Text style={styles.tableColLeft}>{item.descricao}</Text>
-                <Text style={styles.tableColRight}>{formatCurrency(item.valor)}</Text>
-              </View>
-            ))}
-            <View style={styles.subtotalRow}>
-              <Text style={styles.subtotalLabel}>Subtotal Outros Encargos:</Text>
-              <Text style={styles.subtotalValue}>{formatCurrency(subtotalOutros)}</Text>
+            <View style={[styles.subtotalRow, { backgroundColor: '#ecfdf5', borderTopWidth: 1, borderTopColor: '#86efac' }]}>
+              <Text style={[styles.subtotalLabel, { color: '#15803d' }]}>
+                (=) Saldo de Caução Utilizado para Quitação do Mês:
+              </Text>
+              <Text style={[styles.subtotalValue, { color: '#15803d', fontSize: 10 }]}>
+                - {formatCurrency(cobranca.compensacaoCaucao.saldoCaucaoAplicado)}
+              </Text>
             </View>
           </>
         )}
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total a pagar</Text>
+          <Text style={styles.totalLabel}>
+            {cobranca?.compensacaoCaucao?.ativo 
+              ? "Saldo final a pagar pelo locatário" 
+              : isComplementar 
+              ? (cobranca?.valorTotal > 0 ? "Saldo a pagar pelo locatário" : "Saldo quitado / compensado") 
+              : "Total a pagar"}
+          </Text>
           <Text style={styles.totalValue}>{formatCurrency(cobranca?.valorTotal)}</Text>
         </View>
       </View>
@@ -714,8 +823,55 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
           </>
         )}
 
+        {/* COMPENSAÇÃO DE SALDO DE CAUÇÃO (ENCONTRO DE CONTAS) */}
+        {cobranca?.compensacaoCaucao?.ativo && (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>COMPENSAÇÃO DE SALDO DE CAUÇÃO (ENCONTRO DE CONTAS)</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableColLeft}>Caução original em garantia</Text>
+              <Text style={styles.tableColRight}>{formatCurrency(cobranca.compensacaoCaucao.valorCaucaoOriginal)}</Text>
+            </View>
+            {cobranca.compensacaoCaucao.rendimentoPoupanca > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={styles.tableColLeft}>Rendimento poupança</Text>
+                <Text style={[styles.tableColRight, { color: '#16a34a' }]}>+ {formatCurrency(cobranca.compensacaoCaucao.rendimentoPoupanca)}</Text>
+              </View>
+            )}
+            <View style={[styles.tableRow, { backgroundColor: '#f0fdf4' }]}>
+              <Text style={[styles.tableColLeft, { fontWeight: 'bold' }]}>(=) Total da Caução Atualizada</Text>
+              <Text style={[styles.tableColRight, { color: '#16a34a', fontWeight: 'bold' }]}>
+                + {formatCurrency(cobranca.compensacaoCaucao.valorCaucaoAtualizada)}
+              </Text>
+            </View>
+            {cobranca.compensacaoCaucao.valorMultaRescisoria > 0 && (
+              <View style={styles.tableRow}>
+                <Text style={[styles.tableColLeft, styles.textRed]}>
+                  (-) {cobranca.compensacaoCaucao.descricaoMulta || 'Multa Rescisória Contratual (Retenção Locador)'}
+                </Text>
+                <Text style={[styles.tableColRight, styles.textRed]}>
+                  - {formatCurrency(cobranca.compensacaoCaucao.valorMultaRescisoria)}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.subtotalRow, { backgroundColor: '#ecfdf5', borderTopWidth: 1, borderTopColor: '#86efac' }]}>
+              <Text style={[styles.subtotalLabel, { color: '#15803d' }]}>
+                (=) Saldo de Caução Utilizado para Quitação do Mês:
+              </Text>
+              <Text style={[styles.subtotalValue, { color: '#15803d', fontSize: 10 }]}>
+                - {formatCurrency(cobranca.compensacaoCaucao.saldoCaucaoAplicado)}
+              </Text>
+            </View>
+          </>
+        )}
+
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total recebido do locatário</Text>
+          <Text style={styles.totalLabel}>
+            {cobranca?.compensacaoCaucao?.ativo 
+              ? "Saldo recebido do locatário (em dinheiro)" 
+              : "Total recebido do locatário"}
+          </Text>
           <Text style={styles.totalValue}>{formatCurrency(repasse?.valorRecebido)}</Text>
         </View>
       </View>
@@ -745,14 +901,20 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
         </View>
         
         <View style={styles.tableRow}>
-          <Text style={styles.tableColLeft}>VALOR TOTAL RECEBIDO (LOCATÁRIO)</Text>
+          <Text style={styles.tableColLeft}>
+            {cobranca?.compensacaoCaucao?.ativo 
+              ? "VALOR RECEBIDO DO LOCATÁRIO (EM DINHEIRO / PIX)" 
+              : "VALOR TOTAL RECEBIDO (LOCATÁRIO)"}
+          </Text>
           <Text style={styles.tableColRight}>{formatCurrency(repasse?.valorRecebido)}</Text>
         </View>
         
-        <View style={styles.tableRow}>
-          <Text style={styles.tableColLeft}>TAXA DE ADMINISTRAÇÃO ({contrato?.taxaAdministracao}%):</Text>
-          <Text style={styles.tableColRight}>- {formatCurrency(repasse?.taxaAdministracao)}</Text>
-        </View>
+        {Number(repasse?.taxaAdministracao || 0) > 0 && (
+          <View style={styles.tableRow}>
+            <Text style={styles.tableColLeft}>TAXA DE ADMINISTRAÇÃO ({contrato?.taxaAdministracao}%):</Text>
+            <Text style={styles.tableColRight}>- {formatCurrency(repasse?.taxaAdministracao)}</Text>
+          </View>
+        )}
 
         {valorCondoTotal > 0 && repasse?.tipoCondominio === 'desconto' && (
           <View style={[styles.tableRow, styles.tableRowHighlight]}>
@@ -785,8 +947,46 @@ export const ProprietarioPDF = ({ repasse, cobranca, contrato, proprietario, inq
           </View>
         ))}
 
+        {cobranca?.compensacaoCaucao?.ativo && (
+          <>
+            <View style={styles.tableSectionHeader}>
+              <Text style={styles.tableSectionHeaderText}>VALORES RETIDOS / COMPENSADOS PELO LOCADOR (EM CUSTÓDIA)</Text>
+            </View>
+            {cobranca.compensacaoCaucao.valorMultaRescisoria > 0 && (
+              <View style={[styles.tableRow, { backgroundColor: '#f0fdf4' }]}>
+                <Text style={[styles.tableColLeft, { fontWeight: 'bold', color: '#15803d' }]}>
+                  (+) {cobranca.compensacaoCaucao.descricaoMulta || 'MULTA RESCISÓRIA RETIDA DA CAUÇÃO (EM PODER DO LOCADOR)'}
+                </Text>
+                <Text style={[styles.tableColRight, { color: '#16a34a', fontWeight: 'bold' }]}>
+                  {formatCurrency(cobranca.compensacaoCaucao.valorMultaRescisoria)}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.tableRow, { backgroundColor: '#f0fdf4' }]}>
+              <Text style={[styles.tableColLeft, { fontWeight: 'bold', color: '#15803d' }]}>
+                (+) SALDO DA CAUÇÃO APLICADO NA QUITAÇÃO DO MÊS (EM PODER DO LOCADOR)
+              </Text>
+              <Text style={[styles.tableColRight, { color: '#16a34a', fontWeight: 'bold' }]}>
+                {formatCurrency(cobranca.compensacaoCaucao.saldoCaucaoAplicado)}
+              </Text>
+            </View>
+            <View style={[styles.subtotalRow, { backgroundColor: '#ecfdf5', borderTopWidth: 1, borderTopColor: '#86efac' }]}>
+              <Text style={[styles.subtotalLabel, { color: '#15803d' }]}>
+                (=) TOTAL RECEBIDO / BENEFICIADO AO LOCADOR (CAUÇÃO + REPASSE):
+              </Text>
+              <Text style={[styles.subtotalValue, { color: '#15803d', fontSize: 10 }]}>
+                {formatCurrency((Number(repasse?.valorRecebido) || 0) + Number(cobranca.compensacaoCaucao.valorMultaRescisoria || 0) + Number(cobranca.compensacaoCaucao.saldoCaucaoAplicado || 0))}
+              </Text>
+            </View>
+          </>
+        )}
+
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total de repasse para o locador:</Text>
+          <Text style={styles.totalLabel}>
+            {cobranca?.compensacaoCaucao?.ativo 
+              ? "Total de repasse líquido para o locador (a transferir):" 
+              : "Total de repasse para o locador:"}
+          </Text>
           <Text style={styles.totalValue}>{formatCurrency(repasse?.valorLiquido)}</Text>
         </View>
       </View>
